@@ -2,8 +2,8 @@
 #include <Adafruit_PWMServoDriver.h>
 #include <SPI.h>
 
-#define SERVOMIN 100
-#define SERVOMAX 500
+#define SERVOMIN 500
+#define SERVOMAX 2500
 Adafruit_PWMServoDriver servoDriver_module = Adafruit_PWMServoDriver();
 void home();
 
