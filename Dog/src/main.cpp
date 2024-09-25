@@ -1,18 +1,36 @@
 #include <Arduino.h>
+#include <Adafruit_PWMServoDriver.h>
+#include <SPI.h>
 
-// put function declarations here:
-int myFunction(int, int);
+#define SERVOMIN 100
+#define SERVOMAX 500
+Adafruit_PWMServoDriver servoDriver_module = Adafruit_PWMServoDriver();
+void home();
 
 void setup() {
-  // put your setup code here, to run once:
-  int result = myFunction(2, 3);
+  Serial.begin(9600);
+  servoDriver_module.begin();
+  servoDriver_module.setPWMFreq(50);    //Arbeitsfrequenz
+  home();
 }
 
 void loop() {
   // put your main code here, to run repeatedly:
 }
 
-// put function definitions here:
-int myFunction(int x, int y) {
-  return x + y;
+void home() {
+      //(Port, steigende Flanke, sinkende Flanke)
+      servoDriver_module.setPWM(0, 0, 420);   //VL Lower
+      servoDriver_module.setPWM(1, 0, 360);   //VL Upper
+      servoDriver_module.setPWM(2, 0, 350);   //VL Side
+      servoDriver_module.setPWM(4, 0, 400);   //HLL
+      servoDriver_module.setPWM(5, 0, 440);   //HLU
+      servoDriver_module.setPWM(6, 0, 280);   //HLS
+      servoDriver_module.setPWM(8, 0, 240);   //HRL
+      servoDriver_module.setPWM(9, 0, 220);   //HRU
+      servoDriver_module.setPWM(10, 0, 340);  //HRS
+      servoDriver_module.setPWM(12, 0, 190);  //VRL
+      servoDriver_module.setPWM(13, 0, 260);  //VRU
+      servoDriver_module.setPWM(14, 0, 260);  //VRS
+      delay(10000);
 }
