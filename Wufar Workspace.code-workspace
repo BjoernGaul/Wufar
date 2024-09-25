@@ -1,0 +1,16 @@
+{
+	"folders": [
+		{
+			"path": "Cam"
+		},
+		{
+			"name": "Dog",
+			"path": "Dog"
+		},
+		{
+			"name": "Remote",
+			"path": "Remote"
+		}
+	],
+	"settings": {}
+}
