@@ -5,6 +5,10 @@
 #define SERVOMIN 500
 #define SERVOMAX 2500
 Adafruit_PWMServoDriver servoDriver_module = Adafruit_PWMServoDriver();
+
+//function declarations
+int angleToPulse(int ang);
+
 void home();
 
 void setup() {
@@ -34,3 +38,10 @@ void home() {
       servoDriver_module.setPWM(14, 0, 260);  //VRS
       delay(10000);
 }
+
+int angleToPulse(int ang)                             //gets angle in degree and returns the pulse width
+  {  int pulse = map(ang,0, 180, SERVOMIN,SERVOMAX);  // map angle of 0 to 180 to Servo min and Servo max 
+     Serial.print("Angle: ");Serial.print(ang);
+     Serial.print(" pulse: ");Serial.println(pulse);
+     return pulse;
+  }
