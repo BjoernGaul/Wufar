@@ -1,9 +1,15 @@
+//Mac-Adresse: 90:C9:22:EC:B9:80
 #include <Arduino.h>
 #include <Adafruit_PWMServoDriver.h>
 #include <SPI.h>
+#include <esp_now.h>
+#include <WiFi.h>
+#include <Wire.h>
+#include <esp_wifi.h>
 
 #define SERVOMIN 125
 #define SERVOMAX 600
+
 
 //Pin of Servos
 #define SVL 0
@@ -50,24 +56,48 @@ int cbhr;
 int cbvr;
 int cbhl;
 
+uint8_t remoteMac[6] = {0x30, 0xC9, 0x22, 0xEC, 0xBE, 0xAC};
+String success;
+int testnumber = 3;
+
+
 void home();
 void up();
 void down();
 void squat();
 void setServo(int motor, int currmotor, int angle);
+void readMacAdress();
+
 
 void setup() {
   Serial.begin(9600);
   servoDriver_module.begin();
   servoDriver_module.setPWMFreq(50);    //Arbeitsfrequenz
   Serial.printf("Begin Wait\n");
-  delay(2000);
+  delay(4000);
   Serial.printf("Finished Wait\n");
-  home();
+  readMacAdress();
+  WiFi.mode(WIFI_STA);
+  if (esp_now_init() != ESP_OK) {
+    Serial.println("Error initializing ESP-NOW");
+    return;
+  }
+  esp_now_peer_info_t peerInfo;
+  memcpy(peerInfo.peer_addr, remoteMac, 6);
+  peerInfo.channel = 0;
+  peerInfo.encrypt = false;
+  //home();
 }
 
 void loop() {
-  squat();
+  delay(5000);
+  esp_err_t result = esp_now_send(remoteMac, (uint8_t *) &testnumber, sizeof(testnumber));
+  if (result == ESP_OK) {
+    Serial.println("Sent with success");
+  } else {
+    Serial.println("Error sending the data");
+  }
+  //squat();
 }
 
 int angleToPulse(int ang){
@@ -163,4 +193,18 @@ void squat(){
 void setServo(int motor, int currmotor, int angle){
   servoDriver_module.setPWM(motor, 0, angleToPulse(angle));
   currmotor = angleToPulse(angle);
+}
+
+void readMacAdress(){
+  uint8_t mac[6];
+  esp_read_mac(mac, ESP_MAC_WIFI_STA);
+  Serial.printf("MAC Address: %02x:%02x:%02x:%02x:%02x:%02x\n", mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
+}
+
+void onDataReceive(const uint8_t * mac, const uint8_t * data, int len) {
+  int receivedNumber;
+  memcpy(&receivedNumber, data, sizeof(receivedNumber));
+  if (receivedNumber == 3) {
+    Serial.println("Received data");
+  }
 }
