@@ -67,7 +67,7 @@ void down();
 void squat();
 void setServo(int motor, int currmotor, int angle);
 void readMacAdress();
-
+void onDataReceive(const uint8_t * mac, const uint8_t * data, int len);
 
 void setup() {
   Serial.begin(9600);
@@ -82,10 +82,20 @@ void setup() {
     Serial.println("Error initializing ESP-NOW");
     return;
   }
+  esp_now_register_recv_cb(onDataReceive);
   esp_now_peer_info_t peerInfo;
+  memset(&peerInfo, 0, sizeof(peerInfo));
   memcpy(peerInfo.peer_addr, remoteMac, 6);
   peerInfo.channel = 0;
   peerInfo.encrypt = false;
+  esp_err_t addPeerResult = esp_now_add_peer(&peerInfo);
+  if (esp_now_add_peer(&peerInfo) != ESP_OK) {
+    Serial.println("Failed to add peer");
+    Serial.println(addPeerResult);
+    return;
+  }else{
+    Serial.println("Peer added");
+  }
   //home();
 }
 
@@ -203,8 +213,7 @@ void readMacAdress(){
 
 void onDataReceive(const uint8_t * mac, const uint8_t * data, int len) {
   int receivedNumber;
+  Serial.println("Received data");
   memcpy(&receivedNumber, data, sizeof(receivedNumber));
-  if (receivedNumber == 3) {
-    Serial.println("Received data");
-  }
+  Serial.println(receivedNumber);
 }

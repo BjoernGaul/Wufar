@@ -3,14 +3,15 @@
 #include <WiFi.h>
 #include <esp_now.h>
 #include <esp_wifi.h>
+int answer = 5;
 
 uint8_t remoteMac[6] = {0x30, 0xC9, 0x22, 0xEC, 0xB9, 0x80};
 void readMacAdress();
 void onDataReceive(const uint8_t * mac, const uint8_t * data, int len) {
   Serial.print("Received data from: ");
   int receivedNumber;
-  int answer = 5;
   memcpy(&receivedNumber, data, sizeof(receivedNumber));
+  Serial.println(receivedNumber);
   if (receivedNumber == 3) {
     esp_err_t result = esp_now_send(remoteMac, (uint8_t *) &answer, sizeof(answer));
     if (result == ESP_OK) {
@@ -32,9 +33,18 @@ void setup() {
   }
   esp_now_register_recv_cb(onDataReceive);
   esp_now_peer_info_t peerInfo;
+  memset(&peerInfo, 0, sizeof(peerInfo));
   memcpy(peerInfo.peer_addr, remoteMac, 6);
   peerInfo.channel = 0;
   peerInfo.encrypt = false;
+  esp_err_t addPeerResult = esp_now_add_peer(&peerInfo);
+  if (esp_now_add_peer(&peerInfo) != ESP_OK) {
+    Serial.println("Failed to add peer");
+    Serial.println(addPeerResult);
+    return;
+  }else{
+    Serial.println("Peer added");
+  }
 }
 
 void loop() {
