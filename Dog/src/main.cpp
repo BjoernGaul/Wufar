@@ -6,6 +6,10 @@
 #include <WiFi.h>
 #include <Wire.h>
 #include <esp_wifi.h>
+#include <IRremoteESP8266.h>
+#include <IRrecv.h>
+#include <IRutils.h>
+
 
 #define SERVOMIN 125
 #define SERVOMAX 600
@@ -25,36 +29,43 @@
 #define BVR 11
 #define BHL 12
 
+//Hex-Adresse des Empfängers
+#define FB0 0xFF6897
+#define FB1 0xFF30CF
+#define FB2 0xFF18E7
+#define FB3 0xFF7A85
+#define FB4 0xFF10EF
+#define FB5 0xFF38C7
+#define FB6 0xFF5AA5
+#define FB7 0xFF42BD
+#define FB8 0xFF4AB5
+#define FB9 0xFF52AD
+#define FBONOFF 0xFFA25D
+#define FBUP 0xFF906F
+#define FBDOWN 0xFFE01F
+const uint16_t RECV_PIN = 4;
 
 Adafruit_PWMServoDriver servoDriver_module = Adafruit_PWMServoDriver(0x40);
+IRrecv irrecv(RECV_PIN);
+decode_results results;
 
 int angleToPulse(int ang);
 //neutral positions
-const int nsvl = 95;
-const int nshr = 95;
-const int nsvr = 95;
-const int nshl = 95;
-const int ntvl = 95;
-const int nthr = 105;
-const int ntvr = 105;
-const int nthl = 65;
-const int nbvl = 95;
-const int nbhr = 95;
-const int nbvr = 95;
-const int nbhl = 95;
+const int nsvl = 208;
+const int nshr = 93;
+const int nsvr = 105;
+const int nshl = 100;
+const int ntvl = 130;
+const int nthr = 60;
+const int ntvr = 70;
+const int nthl = 140;
+const int nbvl = 15;
+const int nbhr = 160;
+const int nbvr = 190;
+const int nbhl = 10;
+
 //current positions
-int csvl;
-int cshr;
-int csvr;
-int cshl;
-int ctvl;
-int cthr;
-int ctvr;
-int cthl;
-int cbvl;
-int cbhr;
-int cbvr;
-int cbhl;
+int csvl, cshr, csvr, cshl, ctvl, cthr, ctvr, cthl, cbvl, cbhr, cbvr, cbhl;
 
 uint8_t remoteMac[6] = {0x30, 0xC9, 0x22, 0xEC, 0xBE, 0xAC};
 String success;
@@ -65,17 +76,21 @@ void home();
 void up();
 void down();
 void squat();
-void setServo(int motor, int currmotor, int angle);
+void setServo(int motor, int &currmotor, int angle);
+void setServoS(int GoUp);
+void setServoT(int GoUp);
+void setServoB(int GoUp);
 void readMacAdress();
 void onDataReceive(const uint8_t * mac, const uint8_t * data, int len);
+void checkIR();
 
 void setup() {
   Serial.begin(9600);
   servoDriver_module.begin();
   servoDriver_module.setPWMFreq(50);    //Arbeitsfrequenz
-  Serial.printf("Begin Wait\n");
-  delay(4000);
-  Serial.printf("Finished Wait\n");
+  home();
+  irrecv.enableIRIn(); 
+  Serial.println("IR enabled");
   readMacAdress();
   WiFi.mode(WIFI_STA);
   if (esp_now_init() != ESP_OK) {
@@ -89,24 +104,25 @@ void setup() {
   peerInfo.channel = 0;
   peerInfo.encrypt = false;
   esp_err_t addPeerResult = esp_now_add_peer(&peerInfo);
-  if (esp_now_add_peer(&peerInfo) != ESP_OK) {
+  /*if (esp_now_add_peer(&peerInfo) != ESP_OK) {
     Serial.println("Failed to add peer");
     Serial.println(addPeerResult);
     return;
   }else{
     Serial.println("Peer added");
-  }
-  //home();
+  }*/
 }
 
 void loop() {
-  delay(5000);
+  checkIR();
+
+  /*delay(5000);
   esp_err_t result = esp_now_send(remoteMac, (uint8_t *) &testnumber, sizeof(testnumber));
   if (result == ESP_OK) {
     Serial.println("Sent with success");
   } else {
     Serial.println("Error sending the data");
-  }
+  }*/
   //squat();
 }
 
@@ -118,33 +134,18 @@ int angleToPulse(int ang){
 }
 
 void home() {
-  servoDriver_module.setPWM(SVL, 0, angleToPulse(95));
-  Serial.printf("Setze Seite VL\n");
-  servoDriver_module.setPWM(SHR, 0, angleToPulse(95));
-  Serial.printf("Setze Seite HR\n");
-  servoDriver_module.setPWM(SVR, 0, angleToPulse(95));
-  Serial.printf("Setze Seite VR\n");
-  servoDriver_module.setPWM(SHL, 0, angleToPulse(95));
-  Serial.printf("Setze Seite HL\n");
-  delay(1000);
-  servoDriver_module.setPWM(TVL, 0, angleToPulse(95));
-  Serial.printf("Setze Top VL\n");
-  servoDriver_module.setPWM(THR, 0, angleToPulse(105));
-  Serial.printf("Setze Top HR\n");
-  servoDriver_module.setPWM(TVR, 0, angleToPulse(105));
-  Serial.printf("Setze Top VR\n");
-  servoDriver_module.setPWM(THL, 0, angleToPulse(65));
-  Serial.printf("Setze Top HL\n");
-  delay(1000);
-  servoDriver_module.setPWM(BVL, 0, angleToPulse(95));
-  Serial.printf("Setze Bottom VL\n");
-  servoDriver_module.setPWM(BHR, 0, angleToPulse(95));
-  Serial.printf("Setze Bottom HR\n");
-  servoDriver_module.setPWM(BVR, 0, angleToPulse(95));
-  Serial.printf("Setze Bottom VR\n");
-  servoDriver_module.setPWM(BHL, 0, angleToPulse(95));
-  Serial.printf("Setze Bottom HL\n");
-  delay(1000);
+  setServo(SVL, csvl, nsvl);
+  setServo(SHR, cshr, nshr);
+  setServo(SVR, csvr, nsvr);
+  setServo(SHL, cshl, nshl);
+  setServo(TVL, ctvl, ntvl);
+  setServo(THR, cthr, nthr);
+  setServo(TVR, ctvr, ntvr);
+  setServo(THL, cthl, nthl);
+  setServo(BVL, cbvl, nbvl);
+  setServo(BHR, cbhr, nbhr);
+  setServo(BVR, cbvr, nbvr);
+  setServo(BHL, cbhl, nbhl);
   return;
 }
 
@@ -159,15 +160,6 @@ void up(){
     setServo(THR, cthr, nthr+i);
     setServo(TVR, ctvr, ntvr+i);
     setServo(THL, cthl, nthl-i);
-    /*servoDriver_module.setPWM(BVL, 0, angleToPulse(nbvl+(2*i)));
-    servoDriver_module.setPWM(BHR, 0, angleToPulse(nbhr-(2*i)));
-    servoDriver_module.setPWM(BVR, 0, angleToPulse(nbvr-(2*i)));
-    servoDriver_module.setPWM(BHL, 0, angleToPulse(nbhl+(2*i)));
-
-    servoDriver_module.setPWM(TVL, 0, angleToPulse(ntvl-i));
-    servoDriver_module.setPWM(THR, 0, angleToPulse(nthr+i));
-    servoDriver_module.setPWM(TVR, 0, angleToPulse(ntvr+i));
-    servoDriver_module.setPWM(THL, 0, angleToPulse(nthl-i));*/
   }
 }
 
@@ -200,9 +192,32 @@ void squat(){
   delay(5000);
 }
 
-void setServo(int motor, int currmotor, int angle){
+void setServo(int motor, int &currmotor, int angle){
   servoDriver_module.setPWM(motor, 0, angleToPulse(angle));
-  currmotor = angleToPulse(angle);
+  currmotor = angle;
+}
+
+void setServoS(int GoUp){
+  setServo(SVL, csvl, (csvl+GoUp));
+  setServo(SHR, cshr, (cshr+GoUp));
+  setServo(SVR, csvr, (csvr+GoUp));
+  setServo(SHL, cshl, (cshl+GoUp));
+}
+
+void setServoT(int GoUp){
+  //Rechts: hoch addieren, Links: hoch subtrahieren
+  setServo(TVL, ctvl, (ctvl-GoUp));
+  setServo(THR, cthr, (cthr+GoUp));
+  setServo(TVR, ctvr, (ctvr+GoUp));
+  setServo(THL, cthl, (cthl-GoUp));
+}
+
+void setServoB(int GoUp){
+  //Rechts: hoch subtrahieren, Links: hoch addieren
+  setServo(BVL, cbvl, cbvl+GoUp);
+  setServo(BHR, cbhr, cbhr-GoUp*1.4);
+  setServo(BVR, cbvr, cbvr-GoUp);
+  setServo(BHL, cbhl, cbhl+GoUp*1.4);
 }
 
 void readMacAdress(){
@@ -216,4 +231,57 @@ void onDataReceive(const uint8_t * mac, const uint8_t * data, int len) {
   Serial.println("Received data");
   memcpy(&receivedNumber, data, sizeof(receivedNumber));
   Serial.println(receivedNumber);
+}
+
+void checkIR(){
+  if (irrecv.decode(&results)) {
+    Serial.println(results.value, HEX);
+    switch (results.value){
+      case FB0:
+        Serial.println("FB0");
+        Serial.println(csvl);
+        Serial.println(cshr);
+        Serial.println(csvr);
+        Serial.println(cshl);
+        Serial.println(ctvl);
+        Serial.println(cthr);
+        Serial.println(ctvr);
+        Serial.println(cthl);
+        Serial.println(cbvl);
+        Serial.println(cbhr);
+        Serial.println(cbvr);
+        Serial.println(cbhl);
+        break;
+      case FB1:
+        Serial.println("FB1");
+        break;
+      case FB2:
+        Serial.println("FB2");
+        break;
+      case FB3:
+        Serial.println("FB3");
+        break;
+      case FB4:
+        Serial.println("FB4");
+        break;
+      case FB5:
+        home();
+        break;
+      case FBUP:
+        setServoT(5);
+        setServoB(10);
+        Serial.println("FBUP");
+        break;
+      case FBDOWN:
+        setServoT(-5);
+        setServoB(-10);
+        Serial.println("FBDOWN");
+        break;
+      default:
+        Serial.println("Unknown");
+        break;
+    }
+
+    irrecv.resume();
+  }
 }
