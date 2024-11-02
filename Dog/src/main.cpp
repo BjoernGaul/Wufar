@@ -9,6 +9,8 @@
 #include <IRremoteESP8266.h>
 #include <IRrecv.h>
 #include <IRutils.h>
+#include <Adafruit_Sensor.h>
+#include <Adafruit_MPU6050.h>
 
 
 #define SERVOMIN 125
@@ -48,6 +50,7 @@ const uint16_t RECV_PIN = 4;
 Adafruit_PWMServoDriver servoDriver_module = Adafruit_PWMServoDriver(0x40);
 IRrecv irrecv(RECV_PIN);
 decode_results results;
+Adafruit_MPU6050 mpu;
 
 int angleToPulse(int ang);
 //neutral positions
@@ -88,6 +91,8 @@ void setServoTB(int GoUp);
 void readMacAdress();
 void onDataReceive(const uint8_t * mac, const uint8_t * data, int len);
 void checkIR();
+void gyrosetup();
+void gyroread();
 
 void setup() {
   Serial.begin(9600);
@@ -116,11 +121,12 @@ void setup() {
   }else{
     Serial.println("Peer added");
   }*/
+  gyrosetup();
 }
 
 void loop() {
   checkIR();
-
+  gyroread();
   /*delay(5000);
   esp_err_t result = esp_now_send(remoteMac, (uint8_t *) &testnumber, sizeof(testnumber));
   if (result == ESP_OK) {
@@ -448,4 +454,90 @@ void sidestepR(){
   delay(1000);
   setServo(BVL, cbvl, cbvl-10);
   setServo(BHR, cbhr, cbhr+10);
+}
+
+void gyrosetup(){
+  if (!mpu.begin()){
+    Serial.println("Sensor init failed");
+    while(1){
+      delay(10);
+    }
+  }
+  Serial.println("Found MPU6050");
+
+  mpu.setAccelerometerRange(MPU6050_RANGE_8_G);
+  Serial.print("Accelerometer range set to: ");
+  switch (mpu.getAccelerometerRange()){
+    case MPU6050_RANGE_2_G:
+      Serial.println("+-2G");
+      break;
+    case MPU6050_RANGE_4_G:
+      Serial.println("+-4G");
+      break;
+    case MPU6050_RANGE_8_G:
+      Serial.println("+-8G");
+      break;
+    case MPU6050_RANGE_16_G:
+      Serial.println("+-16G");
+      break;
+  }
+  mpu.setGyroRange(MPU6050_RANGE_500_DEG);
+  Serial.print("Gyro range set to: ");
+  switch (mpu.getGyroRange()){
+    case MPU6050_RANGE_250_DEG:
+      Serial.println("+-250 deg/s");
+      break;
+    case MPU6050_RANGE_500_DEG:
+      Serial.println("+-500 deg/s");
+      break;
+    case MPU6050_RANGE_1000_DEG:
+      Serial.println("+-1000 deg/s");
+      break;
+    case MPU6050_RANGE_2000_DEG:
+      Serial.println("+-2000 deg/s");
+      break;
+  }
+  mpu.setFilterBandwidth(MPU6050_BAND_5_HZ);
+  Serial.print("Filter bandwidth set to: ");
+  switch (mpu.getFilterBandwidth()){
+    case MPU6050_BAND_260_HZ:
+      Serial.println("260Hz");
+      break;
+    case MPU6050_BAND_184_HZ:
+      Serial.println("184Hz");
+      break;
+    case MPU6050_BAND_94_HZ:
+      Serial.println("94Hz");
+      break;
+    case MPU6050_BAND_44_HZ:
+      Serial.println("44Hz");
+      break;
+    case MPU6050_BAND_21_HZ:
+      Serial.println("21Hz");
+      break;
+    case MPU6050_BAND_10_HZ:
+      Serial.println("10Hz");
+      break;
+    case MPU6050_BAND_5_HZ:
+      Serial.println("5Hz");
+      break;
+  }
+  Serial.println("");
+  delay(100);
+}
+
+void gyroread(){
+  sensors_event_t a, g, temp;
+  mpu.getEvent(&a, &g, &temp);
+  Serial.print("Acceleration X: "); Serial.print(a.acceleration.x); Serial.print(" m/s^2");
+  Serial.print("Acceleration Y: "); Serial.print(a.acceleration.y); Serial.print(" m/s^2");
+  Serial.print("Acceleration Z: "); Serial.print(a.acceleration.z); Serial.print(" m/s^2");
+  Serial.println("");
+  // Serial.print("Gyro X: "); Serial.print(g.gyro.x); Serial.print(" rad/s");
+  // Serial.print("Gyro Y: "); Serial.print(g.gyro.y); Serial.print(" rad/s");
+  // Serial.print("Gyro Z: "); Serial.print(g.gyro.z); Serial.print(" rad/s");
+  // Serial.println("");
+  /*Serial.print("Temperature: "); Serial.print(temp.temperature); Serial.println(" deg C");
+  Serial.println("");*/
+  delay(500);
 }
