@@ -52,34 +52,39 @@ decode_results results;
 int angleToPulse(int ang);
 //neutral positions
 const int nsvl = 208;
-const int nshr = 93;
+const int nshr = 88;
 const int nsvr = 105;
 const int nshl = 100;
-const int ntvl = 130;
+const int ntvl = 125;
 const int nthr = 60;
-const int ntvr = 70;
-const int nthl = 140;
+const int ntvr = 65;
+const int nthl = 145;
 const int nbvl = 15;
 const int nbhr = 160;
-const int nbvr = 190;
-const int nbhl = 10;
+const int nbvr = 192;
+const int nbhl = 15;
 
 //current positions
 int csvl, cshr, csvr, cshl, ctvl, cthr, ctvr, cthl, cbvl, cbhr, cbvr, cbhl;
 
+
 uint8_t remoteMac[6] = {0x30, 0xC9, 0x22, 0xEC, 0xBE, 0xAC};
 String success;
+String sitpos = "208,88,105,100,130,60,70,145,15,160,192,15";
+String standpos = "208,88,105,100,90,95,100,110,85,90,122,85";
 int testnumber = 3;
 
 
 void home();
-void up();
-void down();
-void squat();
+void sit();
+void stand();
+void GoTo(String position);
+void sidestepR();
 void setServo(int motor, int &currmotor, int angle);
 void setServoS(int GoUp);
 void setServoT(int GoUp);
 void setServoB(int GoUp);
+void setServoTB(int GoUp);
 void readMacAdress();
 void onDataReceive(const uint8_t * mac, const uint8_t * data, int len);
 void checkIR();
@@ -123,7 +128,6 @@ void loop() {
   } else {
     Serial.println("Error sending the data");
   }*/
-  //squat();
 }
 
 int angleToPulse(int ang){
@@ -149,47 +153,163 @@ void home() {
   return;
 }
 
-void up(){
-  for (int i = 0; i<40; i+=5){
-    setServo(BVL, cbvl, nbvl+(2*i));
-    setServo(BHR, cbhr, nbhr-(2*i));
-    setServo(BVR, cbvr, nbvr-(2*i));
-    setServo(BHL, cbhl, nbhl+(2*i));
-
-    setServo(TVL, ctvl, ntvl-i);
-    setServo(THR, cthr, nthr+i);
-    setServo(TVR, ctvr, ntvr+i);
-    setServo(THL, cthl, nthl-i);
+void sit(){
+  int diff = abs(ctvl - ntvl);
+  for (int i = 0; i<diff; i+=2){
+    if (diff - i ==1){
+      setServoTB(-1);
+    }else{
+      setServoTB(-2);
+    }
+    delay(20);
   }
 }
 
-void down(){
-  for (int j = 0; j<40; j+=5){
-    setServo(BVL, cbvl, cbvl-(2*j));
-    setServo(BHR, cbhr, cbhr+(2*j));
-    setServo(BVR, cbvr, cbvr+(2*j));
-    setServo(BHL, cbhl, cbhl-(2*j));
-    setServo(TVL, ctvl, ctvl+j);
-    setServo(THR, cthr, cthr-j);
-    setServo(TVR, ctvr, ctvr-j);
-    setServo(THL, cthl, cthl+j);
-    /*
-    servoDriver_module.setPWM(BVL, 0, angleToPulse(nbvl+80-(2*j)));
-    servoDriver_module.setPWM(BHR, 0, angleToPulse(nbhr-70+(2*j)));
-    servoDriver_module.setPWM(BVR, 0, angleToPulse(nbvr-80+(2*j)));
-    servoDriver_module.setPWM(BHL, 0, angleToPulse(nbhl+80-(2*j)));
-    servoDriver_module.setPWM(TVL, 0, angleToPulse(ntvl-40+j));
-    servoDriver_module.setPWM(THR, 0, angleToPulse(nthr+40-j));
-    servoDriver_module.setPWM(TVR, 0, angleToPulse(ntvr+40-j));
-    servoDriver_module.setPWM(THL, 0, angleToPulse(nthl-40+j));*/
-  }
+void stand() {
 }
 
-void squat(){
-  up();
-  delay(5000);
-  down();
-  delay(5000);
+void GoTo(String positions) {
+  int stepSize = 2;
+  bool allServosAtTarget = false;
+
+  int targetPositions[12];
+  int index = 0;
+  int start = 0;
+  for (int i = 0; i < positions.length(); i++) {
+    if (positions[i] == ',') {
+      targetPositions[index++] = positions.substring(start, i).toInt();
+      start = i + 1;
+    }
+  }
+  targetPositions[index] = positions.substring(start).toInt();
+  while (!allServosAtTarget) {
+    allServosAtTarget = true;
+
+    // Sides
+    if (abs(csvl - targetPositions[0]) < stepSize) {
+      setServo(SVL, csvl, targetPositions[0]);
+    } else if (csvl < targetPositions[0]) {
+      setServo(SVL, csvl, csvl + stepSize);
+      allServosAtTarget = false;
+    } else if (csvl > targetPositions[0]) {
+      setServo(SVL, csvl, csvl - stepSize);
+      allServosAtTarget = false;
+    }
+
+    if (abs(cshr - targetPositions[1]) < stepSize) {
+      setServo(SHR, cshr, targetPositions[1]);
+    } else if (cshr < targetPositions[1]) {
+      setServo(SHR, cshr, cshr + stepSize);
+      allServosAtTarget = false;
+    } else if (cshr > targetPositions[1]) {
+      setServo(SHR, cshr, cshr - stepSize);
+      allServosAtTarget = false;
+    }
+
+    if (abs(csvr - targetPositions[2]) < stepSize) {
+      setServo(SVR, csvr, targetPositions[2]);
+    } else if (csvr < targetPositions[2]) {
+      setServo(SVR, csvr, csvr + stepSize);
+      allServosAtTarget = false;
+    } else if (csvr > targetPositions[2]) {
+      setServo(SVR, csvr, csvr - stepSize);
+      allServosAtTarget = false;
+    }
+
+    if (abs(cshl - targetPositions[3]) < stepSize) {
+      setServo(SHL, cshl, targetPositions[3]);
+    } else if (cshl < targetPositions[3]) {
+      setServo(SHL, cshl, cshl + stepSize);
+      allServosAtTarget = false;
+    } else if (cshl > targetPositions[3]) {
+      setServo(SHL, cshl, cshl - stepSize);
+      allServosAtTarget = false;
+    }
+
+    //Top
+    if (abs(ctvl - targetPositions[4]) < stepSize) {
+      setServo(TVL, ctvl, targetPositions[4]);
+    } else if (ctvl < targetPositions[4]) {
+      setServo(TVL, ctvl, ctvl + stepSize);
+      allServosAtTarget = false;
+    } else if (ctvl > targetPositions[4]) {
+      setServo(TVL, ctvl, ctvl - stepSize);
+      allServosAtTarget = false;
+    }
+
+    if (abs(cthr - targetPositions[5]) < stepSize) {
+      setServo(THR, cthr, targetPositions[5]);
+    } else if (cthr < targetPositions[5]) {
+      setServo(THR, cthr, cthr + stepSize);
+      allServosAtTarget = false;
+    } else if (cthr > targetPositions[5]) {
+      setServo(THR, cthr, cthr - stepSize);
+      allServosAtTarget = false;
+    }
+
+    if (abs(ctvr - targetPositions[6]) < stepSize) {
+      setServo(TVR, ctvr, targetPositions[6]);
+    } else if (ctvr < targetPositions[6]) {
+      setServo(TVR, ctvr, ctvr + stepSize);
+      allServosAtTarget = false;
+    } else if (ctvr > targetPositions[6]) {
+      setServo(TVR, ctvr, ctvr - stepSize);
+      allServosAtTarget = false;
+    } 
+
+    if (abs(cthl - targetPositions[7]) < stepSize) {
+      setServo(THL, cthl, targetPositions[7]);
+    } else if (cthl < targetPositions[7]) {
+      setServo(THL, cthl, cthl + stepSize);
+      allServosAtTarget = false;
+    } else if (cthl > targetPositions[7]) {
+      setServo(THL, cthl, cthl - stepSize);
+      allServosAtTarget = false;
+    } 
+
+    //Bottom
+    if (abs(cbvl - targetPositions[8]) < stepSize*2) {
+      setServo(BVL, cbvl, targetPositions[8]);
+    } else if (cbvl < targetPositions[8]) {
+      setServo(BVL, cbvl, cbvl + stepSize*2);
+      allServosAtTarget = false;
+    } else if (cbvl > targetPositions[8]) {
+      setServo(BVL, cbvl, cbvl - stepSize*2);
+      allServosAtTarget = false;
+    }
+
+    if (abs(cbhr - targetPositions[9]) < stepSize*2) {
+      setServo(BHR, cbhr, targetPositions[9]);
+    } else if (cbhr < targetPositions[9]) {
+      setServo(BHR, cbhr, cbhr + stepSize*2);
+      allServosAtTarget = false;
+    } else if (cbhr > targetPositions[9]) {
+      setServo(BHR, cbhr, cbhr - stepSize*2);
+      allServosAtTarget = false;
+    } 
+
+    if (abs(cbvr - targetPositions[10]) < stepSize*2) {
+      setServo(BVR, cbvr, targetPositions[10]);
+    } else if (cbvr < targetPositions[10]) {
+      setServo(BVR, cbvr, cbvr + stepSize*2);
+      allServosAtTarget = false;
+    } else if (cbvr > targetPositions[10]) {
+      setServo(BVR, cbvr, cbvr - stepSize*2);
+      allServosAtTarget = false;
+    } 
+
+    if (abs(cbhl - targetPositions[11]) < stepSize*2) {
+      setServo(BHL, cbhl, targetPositions[11]);
+    } else if (cbhl < targetPositions[11]) {
+      setServo(BHL, cbhl, cbhl + stepSize*2);
+      allServosAtTarget = false;
+    } else if (cbhl > targetPositions[11]) {
+      setServo(BHL, cbhl, cbhl - stepSize*2);
+      allServosAtTarget = false;
+    } 
+
+    delay(20);
+  }
 }
 
 void setServo(int motor, int &currmotor, int angle){
@@ -215,9 +335,14 @@ void setServoT(int GoUp){
 void setServoB(int GoUp){
   //Rechts: hoch subtrahieren, Links: hoch addieren
   setServo(BVL, cbvl, cbvl+GoUp);
-  setServo(BHR, cbhr, cbhr-GoUp*1.4);
+  setServo(BHR, cbhr, cbhr-GoUp);
   setServo(BVR, cbvr, cbvr-GoUp);
-  setServo(BHL, cbhl, cbhl+GoUp*1.4);
+  setServo(BHL, cbhl, cbhl+GoUp);
+}
+
+void setServoTB(int GoUp){
+  setServoT(GoUp);
+  setServoB(2*GoUp);
 }
 
 void readMacAdress(){
@@ -253,28 +378,38 @@ void checkIR(){
         Serial.println(cbhl);
         break;
       case FB1:
-        Serial.println("FB1");
+        sidestepR();
         break;
       case FB2:
-        Serial.println("FB2");
+        setServo(SVL, csvl, 208);
+        setServo(SHR, cshr, 88);
+        setServo(SVR, csvr, 105);
+        setServo(SHL, cshl, 100);
+        setServo(TVL, ctvl, 90);
+        setServo(THR, cthr, 95);
+        setServo(TVR, ctvr, 100);
+        setServo(THL, cthl, 110);
+        setServo(BVL, cbvl, 85);
+        setServo(BHR, cbhr, 90);
+        setServo(BVR, cbvr, 122);
+        setServo(BHL, cbhl, 85);
         break;
       case FB3:
-        Serial.println("FB3");
+        GoTo(standpos);
         break;
       case FB4:
         Serial.println("FB4");
+        sit();
         break;
       case FB5:
-        home();
+        GoTo(sitpos);
         break;
       case FBUP:
-        setServoT(5);
-        setServoB(10);
+        setServoTB(5);
         Serial.println("FBUP");
         break;
       case FBDOWN:
-        setServoT(-5);
-        setServoB(-10);
+        setServoTB(-5);
         Serial.println("FBDOWN");
         break;
       default:
@@ -284,4 +419,33 @@ void checkIR(){
 
     irrecv.resume();
   }
+}
+
+void sidestepR(){
+  //Beine auseinander:
+  //Bein heben
+  setServo(BVR, cbvr, cbvr-10);
+  setServo(BHL, cbhl, cbhl+10);
+  delay(1000);
+  //Bein zur Seite
+  setServo(SVL, csvl, csvl+10);
+  setServo(SHR, cshr, cshr-10);
+  setServo(SVR, csvr, csvr-10);
+  setServo(SHL, cshl, cshl+10);
+  delay(1000);
+  //Bein absetzen
+  setServo(BVR, cbvr, cbvr+10);
+  setServo(BHL, cbhl, cbhl-10);
+  delay(5000);
+  //Beine zusammen:
+  setServo(BVL, cbvl, cbvl+10);
+  setServo(BHR, cbhr, cbhr-10);
+  delay(1000);
+  setServo(SVL, csvl, csvl-10);
+  setServo(SHR, cshr, cshr+10);
+  setServo(SVR, csvr, csvr+10);
+  setServo(SHL, cshl, cshl-10);
+  delay(1000);
+  setServo(BVL, cbvl, cbvl-10);
+  setServo(BHR, cbhr, cbhr+10);
 }
