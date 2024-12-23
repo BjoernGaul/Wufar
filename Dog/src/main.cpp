@@ -18,20 +18,21 @@
 
 
 //Pin of Servos
-#define SVL 0
-#define SHR 1
-#define SVR 2
-#define SHL 3
-#define TVL 4
-#define THR 5
-#define TVR 7
-#define THL 8
-#define BVL 9
-#define BHR 10
-#define BVR 11
-#define BHL 12
+#define SFL 0
+#define TFL 1
+#define BFL 2
+#define SBR 3
+#define TBR 4
+#define BBR 5
+#define SFR 7
+#define TFR 8
+#define BFR 9
+#define SBL 10
+#define TBL 11
+#define BBL 12
 
-//Hex-Adresse des Empfängers
+//Hex-Adressen für die IR Fernbedienung
+#define FBPOWER 0xFFA25D
 #define FB0 0xFF6897
 #define FB1 0xFF30CF
 #define FB2 0xFF18E7
@@ -45,7 +46,19 @@
 #define FBONOFF 0xFFA25D
 #define FBUP 0xFF906F
 #define FBDOWN 0xFFE01F
+#define FBLEFT 0x22DD
+#define FBRIGHT 0xFFC23D
+#define FBVOLUP 0xFF659D
+#define FBVOLDOWN 0xFFA857
+#define FBPLAY 0xFF02FD
+#define FBEQ 0xFF9867
+#define FBREPT 0xFFB04F
+#define FBFUNC 0xFFE21D
+
 const uint16_t RECV_PIN = 4;
+//Variablen für Fernbedienung
+int controlmode = 0;
+int selectedServo;
 
 Adafruit_PWMServoDriver servoDriver_module = Adafruit_PWMServoDriver(0x40);
 IRrecv irrecv(RECV_PIN);
@@ -54,35 +67,42 @@ Adafruit_MPU6050 mpu;
 
 int angleToPulse(int ang);
 //neutral positions
-const int nsvl = 208;
-const int nshr = 88;
-const int nsvr = 105;
-const int nshl = 100;
-const int ntvl = 125;
-const int nthr = 60;
-const int ntvr = 65;
-const int nthl = 145;
-const int nbvl = 15;
-const int nbhr = 160;
-const int nbvr = 192;
-const int nbhl = 15;
+const int nSFL = 203;
+const int nTFL = 125;
+const int nBFL = 23;
+const int nSBR = 88;
+const int nTBR = 60;
+const int nBBR = 160;
+const int nSFR = 110;
+const int nTFR = 65;
+const int nBFR = 185;
+const int nSBL = 100;
+const int nTBL = 145;
+const int nBBL = 15;
 
 //current positions
-int csvl, cshr, csvr, cshl, ctvl, cthr, ctvr, cthl, cbvl, cbhr, cbvr, cbhl;
+int cSFL, cTFL, cBFL, cSBR, cTBR, cBBR, cSFR, cTFR, cBFR, cSBL, cTBL, cBBL;
+//Bools for postions
+bool sitting = false;
+bool standing = false;
 
+//Gyroscope offset values
+float accelXOffset = 0, accelYOffset = 0, accelZOffset = 0;
+float gyroXOffset = 0, gyroYOffset = 0, gyroZOffset = 0;
 
 uint8_t remoteMac[6] = {0x30, 0xC9, 0x22, 0xEC, 0xBE, 0xAC};
 String success;
-String sitpos = "208,88,105,100,130,60,70,145,15,160,192,15";
-String standpos = "208,88,105,100,90,95,100,110,85,90,122,85";
 int testnumber = 3;
 
-
+void createPosStrings();    //Erstellt die Strings für die Positionen mithilfe der Variablen
+char sitpos[100];           
+char standpos[100];
 void home();
 void sit();
 void stand();
-void GoTo(String position);
+void GoTo(const char* position);
 void sidestepR();
+void rotateL();
 void setServo(int motor, int &currmotor, int angle);
 void setServoS(int GoUp);
 void setServoT(int GoUp);
@@ -91,15 +111,19 @@ void setServoTB(int GoUp);
 void readMacAdress();
 void onDataReceive(const uint8_t * mac, const uint8_t * data, int len);
 void checkIR();
+void moveServo(int selectedServo, int updown); //uodown: 1 = up, -1 = down
 void gyrosetup();
 void gyroread();
+void calibrateGyro();
+
 
 void setup() {
   Serial.begin(9600);
   servoDriver_module.begin();
   servoDriver_module.setPWMFreq(50);    //Arbeitsfrequenz
+  createPosStrings();
   home();
-  irrecv.enableIRIn(); 
+  irrecv.enableIRIn(); //Infrarotfernbedienung
   Serial.println("IR enabled");
   readMacAdress();
   WiFi.mode(WIFI_STA);
@@ -121,12 +145,12 @@ void setup() {
   }else{
     Serial.println("Peer added");
   }*/
-  gyrosetup();
+  //gyrosetup();
 }
 
 void loop() {
   checkIR();
-  gyroread();
+  //gyroread();
   /*delay(5000);
   esp_err_t result = esp_now_send(remoteMac, (uint8_t *) &testnumber, sizeof(testnumber));
   if (result == ESP_OK) {
@@ -143,24 +167,31 @@ int angleToPulse(int ang){
   return pulse;
 }
 
+void createPosStrings(){
+snprintf(sitpos, sizeof(sitpos), "%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d", nSFL, nTFL, nBFL, nSBR, nTBR, nBBR, nSFR, nTFR, nBFR, nSBL, nTBL, nBBL);
+snprintf(standpos, sizeof(standpos), "%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d", nSFL, 90, 85,nSBR, 95, 90, nSFR, 100, 122, nSBL, 110, 85);
+}
+
 void home() {
-  setServo(SVL, csvl, nsvl);
-  setServo(SHR, cshr, nshr);
-  setServo(SVR, csvr, nsvr);
-  setServo(SHL, cshl, nshl);
-  setServo(TVL, ctvl, ntvl);
-  setServo(THR, cthr, nthr);
-  setServo(TVR, ctvr, ntvr);
-  setServo(THL, cthl, nthl);
-  setServo(BVL, cbvl, nbvl);
-  setServo(BHR, cbhr, nbhr);
-  setServo(BVR, cbvr, nbvr);
-  setServo(BHL, cbhl, nbhl);
+  setServo(SFL, cSFL, nSFL);
+  setServo(SBR, cSBR, nSBR);
+  setServo(SFR, cSFR, nSFR);
+  setServo(SBL, cSBL, nSBL);
+  setServo(TFL, cTFL, nTFL);
+  setServo(TBR, cTBR, nTBR);
+  setServo(TFR, cTFR, nTFR);
+  setServo(TBL, cTBL, nTBL);
+  setServo(BFL, cBFL, nBFL);
+  setServo(BBR, cBBR, nBBR);
+  setServo(BFR, cBFR, nBFR);
+  setServo(BBL, cBBL, nBBL);
+  sitting = true;
+  standing = false;
   return;
 }
 
-void sit(){
-  int diff = abs(ctvl - ntvl);
+void sit(){ //Überflüssig?
+  int diff = abs(cTFL - nTFL);
   for (int i = 0; i<diff; i+=2){
     if (diff - i ==1){
       setServoTB(-1);
@@ -169,181 +200,210 @@ void sit(){
     }
     delay(20);
   }
+  sitting = true;
+  standing = false;
 }
 
+//Steht auf in 2 Schritten
 void stand() {
+  if(sitting){ 
+    setServo(SFL, cSFL, 208); //Seiten ausrichten
+    setServo(SBR, cSBR, 88);
+    setServo(SFR, cSFR, 105);
+    setServo(SBL, cSBL, 100);
+    setServo(TFL, cTFL, 90); //Top ausrichten
+    setServo(TBR, cTBR, 95);
+    setServo(TFR, cTFR, 100);
+    setServo(TBL, cTBL, 110);
+    delay(500);
+    setServo(BFL, cBFL, 85);  //Bottom ausrichten
+    setServo(BBR, cBBR, 90);
+    setServo(BFR, cBFR, 122);
+    setServo(BBL, cBBL, 85);
+  }
+  sitting = false;
+  standing = true;
 }
 
-void GoTo(String positions) {
-  int stepSize = 2;
+void GoTo(const char* positions) {
+  int stepSize = 5;
   bool allServosAtTarget = false;
 
   int targetPositions[12];
   int index = 0;
   int start = 0;
-  for (int i = 0; i < positions.length(); i++) {
+  for (int i = 0; i < strlen(positions); i++) {
     if (positions[i] == ',') {
-      targetPositions[index++] = positions.substring(start, i).toInt();
+      char buffer[10]; 
+      strncpy(buffer, positions + start, i - start);
+      buffer[i - start] = '\0'; 
+      targetPositions[index++] = atoi(buffer);
       start = i + 1;
     }
   }
-  targetPositions[index] = positions.substring(start).toInt();
+  
+  char buffer[10];
+  strncpy(buffer, positions + start, strlen(positions) - start);
+  buffer[strlen(positions) - start] = '\0';
+  targetPositions[index] = atoi(buffer);
   while (!allServosAtTarget) {
     allServosAtTarget = true;
 
-    // Sides
-    if (abs(csvl - targetPositions[0]) < stepSize) {
-      setServo(SVL, csvl, targetPositions[0]);
-    } else if (csvl < targetPositions[0]) {
-      setServo(SVL, csvl, csvl + stepSize);
+    // Front Left
+    if (abs(cSFL - targetPositions[0]) < stepSize) {
+      setServo(SFL, cSFL, targetPositions[0]);
+    } else if (cSFL < targetPositions[0]) {
+      setServo(SFL, cSFL, cSFL + stepSize);
       allServosAtTarget = false;
-    } else if (csvl > targetPositions[0]) {
-      setServo(SVL, csvl, csvl - stepSize);
-      allServosAtTarget = false;
-    }
-
-    if (abs(cshr - targetPositions[1]) < stepSize) {
-      setServo(SHR, cshr, targetPositions[1]);
-    } else if (cshr < targetPositions[1]) {
-      setServo(SHR, cshr, cshr + stepSize);
-      allServosAtTarget = false;
-    } else if (cshr > targetPositions[1]) {
-      setServo(SHR, cshr, cshr - stepSize);
+    } else if (cSFL > targetPositions[0]) {
+      setServo(SFL, cSFL, cSFL - stepSize);
       allServosAtTarget = false;
     }
 
-    if (abs(csvr - targetPositions[2]) < stepSize) {
-      setServo(SVR, csvr, targetPositions[2]);
-    } else if (csvr < targetPositions[2]) {
-      setServo(SVR, csvr, csvr + stepSize);
+    if (abs(cTFL - targetPositions[1]) < stepSize) {
+      setServo(TFL, cTFL, targetPositions[1]);
+    } else if (cTFL < targetPositions[1]) {
+      setServo(TFL, cTFL, cTFL + stepSize);
       allServosAtTarget = false;
-    } else if (csvr > targetPositions[2]) {
-      setServo(SVR, csvr, csvr - stepSize);
-      allServosAtTarget = false;
-    }
-
-    if (abs(cshl - targetPositions[3]) < stepSize) {
-      setServo(SHL, cshl, targetPositions[3]);
-    } else if (cshl < targetPositions[3]) {
-      setServo(SHL, cshl, cshl + stepSize);
-      allServosAtTarget = false;
-    } else if (cshl > targetPositions[3]) {
-      setServo(SHL, cshl, cshl - stepSize);
+    } else if (cTFL > targetPositions[1]) {
+      setServo(TFL, cTFL, cTFL - stepSize);
       allServosAtTarget = false;
     }
 
-    //Top
-    if (abs(ctvl - targetPositions[4]) < stepSize) {
-      setServo(TVL, ctvl, targetPositions[4]);
-    } else if (ctvl < targetPositions[4]) {
-      setServo(TVL, ctvl, ctvl + stepSize);
+    if (abs(cBFL - targetPositions[2]) < stepSize*2) {
+      setServo(BFL, cBFL, targetPositions[2]);
+    } else if (cBFL < targetPositions[2]) {
+      setServo(BFL, cBFL, cBFL + stepSize*2);
       allServosAtTarget = false;
-    } else if (ctvl > targetPositions[4]) {
-      setServo(TVL, ctvl, ctvl - stepSize);
-      allServosAtTarget = false;
-    }
-
-    if (abs(cthr - targetPositions[5]) < stepSize) {
-      setServo(THR, cthr, targetPositions[5]);
-    } else if (cthr < targetPositions[5]) {
-      setServo(THR, cthr, cthr + stepSize);
-      allServosAtTarget = false;
-    } else if (cthr > targetPositions[5]) {
-      setServo(THR, cthr, cthr - stepSize);
+    } else if (cBFL > targetPositions[2]) {
+      setServo(BFL, cBFL, cBFL - stepSize*2);
       allServosAtTarget = false;
     }
 
-    if (abs(ctvr - targetPositions[6]) < stepSize) {
-      setServo(TVR, ctvr, targetPositions[6]);
-    } else if (ctvr < targetPositions[6]) {
-      setServo(TVR, ctvr, ctvr + stepSize);
+    // Back Right
+    if (abs(cSBR - targetPositions[3]) < stepSize) {
+      setServo(SBR, cSBR, targetPositions[3]);
+    } else if (cSBR < targetPositions[3]) {
+      setServo(SBR, cSBR, cSBR + stepSize);
       allServosAtTarget = false;
-    } else if (ctvr > targetPositions[6]) {
-      setServo(TVR, ctvr, ctvr - stepSize);
+    } else if (cSBR > targetPositions[3]) {
+      setServo(SBR, cSBR, cSBR - stepSize);
+      allServosAtTarget = false;
+    }
+
+    if (abs(cTBR - targetPositions[4]) < stepSize) {
+      setServo(TBR, cTBR, targetPositions[4]);
+    } else if (cTBR < targetPositions[4]) {
+      setServo(TBR, cTBR, cTBR + stepSize);
+      allServosAtTarget = false;
+    } else if (cTBR > targetPositions[4]) {
+      setServo(TBR, cTBR, cTBR - stepSize);
+      allServosAtTarget = false;
+    }
+
+    if (abs(cBBR - targetPositions[5]) < stepSize*2) {
+      setServo(BBR, cBBR, targetPositions[5]);
+    } else if (cBBR < targetPositions[5]) {
+      setServo(BBR, cBBR, cBBR + stepSize*2);
+      allServosAtTarget = false;
+    } else if (cBBR > targetPositions[5]) {
+      setServo(BBR, cBBR, cBBR - stepSize*2);
       allServosAtTarget = false;
     } 
 
-    if (abs(cthl - targetPositions[7]) < stepSize) {
-      setServo(THL, cthl, targetPositions[7]);
-    } else if (cthl < targetPositions[7]) {
-      setServo(THL, cthl, cthl + stepSize);
+    // Front Right
+    if (abs(cSFR - targetPositions[6]) < stepSize) {
+      setServo(SFR, cSFR, targetPositions[6]);
+    } else if (cSFR < targetPositions[6]) {
+      setServo(SFR, cSFR, cSFR + stepSize);
       allServosAtTarget = false;
-    } else if (cthl > targetPositions[7]) {
-      setServo(THL, cthl, cthl - stepSize);
-      allServosAtTarget = false;
-    } 
-
-    //Bottom
-    if (abs(cbvl - targetPositions[8]) < stepSize*2) {
-      setServo(BVL, cbvl, targetPositions[8]);
-    } else if (cbvl < targetPositions[8]) {
-      setServo(BVL, cbvl, cbvl + stepSize*2);
-      allServosAtTarget = false;
-    } else if (cbvl > targetPositions[8]) {
-      setServo(BVL, cbvl, cbvl - stepSize*2);
+    } else if (cSFR > targetPositions[6]) {
+      setServo(SFR, cSFR, cSFR - stepSize);
       allServosAtTarget = false;
     }
 
-    if (abs(cbhr - targetPositions[9]) < stepSize*2) {
-      setServo(BHR, cbhr, targetPositions[9]);
-    } else if (cbhr < targetPositions[9]) {
-      setServo(BHR, cbhr, cbhr + stepSize*2);
+    if (abs(cTFR - targetPositions[7]) < stepSize) {
+      setServo(TFR, cTFR, targetPositions[7]);
+    } else if (cTFR < targetPositions[7]) {
+      setServo(TFR, cTFR, cTFR + stepSize);
       allServosAtTarget = false;
-    } else if (cbhr > targetPositions[9]) {
-      setServo(BHR, cbhr, cbhr - stepSize*2);
-      allServosAtTarget = false;
-    } 
-
-    if (abs(cbvr - targetPositions[10]) < stepSize*2) {
-      setServo(BVR, cbvr, targetPositions[10]);
-    } else if (cbvr < targetPositions[10]) {
-      setServo(BVR, cbvr, cbvr + stepSize*2);
-      allServosAtTarget = false;
-    } else if (cbvr > targetPositions[10]) {
-      setServo(BVR, cbvr, cbvr - stepSize*2);
+    } else if (cTFR > targetPositions[7]) {
+      setServo(TFR, cTFR, cTFR - stepSize);
       allServosAtTarget = false;
     } 
 
-    if (abs(cbhl - targetPositions[11]) < stepSize*2) {
-      setServo(BHL, cbhl, targetPositions[11]);
-    } else if (cbhl < targetPositions[11]) {
-      setServo(BHL, cbhl, cbhl + stepSize*2);
+    if (abs(cBFR - targetPositions[8]) < stepSize*2) {
+      setServo(BFR, cBFR, targetPositions[8]);
+    } else if (cBFR < targetPositions[8]) {
+      setServo(BFR, cBFR, cBFR + stepSize*2);
       allServosAtTarget = false;
-    } else if (cbhl > targetPositions[11]) {
-      setServo(BHL, cbhl, cbhl - stepSize*2);
+    } else if (cBFR > targetPositions[8]) {
+      setServo(BFR, cBFR, cBFR - stepSize*2);
       allServosAtTarget = false;
     } 
 
-    delay(20);
+    // Back Left
+    if (abs(cSBL - targetPositions[9]) < stepSize) {
+      setServo(SBL, cSBL, targetPositions[9]);
+    } else if (cSBL < targetPositions[9]) {
+      setServo(SBL, cSBL, cSBL + stepSize);
+      allServosAtTarget = false;
+    } else if (cSBL > targetPositions[9]) {
+      setServo(SBL, cSBL, cSBL - stepSize);
+      allServosAtTarget = false;
+    }
+
+    if (abs(cTBL - targetPositions[10]) < stepSize) {
+      setServo(TBL, cTBL, targetPositions[10]);
+    } else if (cTBL < targetPositions[10]) {
+      setServo(TBL, cTBL, cTBL + stepSize);
+      allServosAtTarget = false;
+    } else if (cTBL > targetPositions[10]) {
+      setServo(TBL, cTBL, cTBL - stepSize);
+      allServosAtTarget = false;
+    } 
+
+    if (abs(cBBL - targetPositions[11]) < stepSize*2) {
+      setServo(BBL, cBBL, targetPositions[11]);
+    } else if (cBBL < targetPositions[11]) {
+      setServo(BBL, cBBL, cBBL + stepSize*2);
+      allServosAtTarget = false;
+    } else if (cBBL > targetPositions[11]) {
+      setServo(BBL, cBBL, cBBL - stepSize*2);
+      allServosAtTarget = false;
+    } 
+
+    delay(50);
   }
 }
 
 void setServo(int motor, int &currmotor, int angle){
   servoDriver_module.setPWM(motor, 0, angleToPulse(angle));
   currmotor = angle;
+  delay(20);
 }
 
 void setServoS(int GoUp){
-  setServo(SVL, csvl, (csvl+GoUp));
-  setServo(SHR, cshr, (cshr+GoUp));
-  setServo(SVR, csvr, (csvr+GoUp));
-  setServo(SHL, cshl, (cshl+GoUp));
+  setServo(SFL, cSFL, (cSFL+GoUp));
+  setServo(SBR, cSBR, (cSBR+GoUp));
+  setServo(SFR, cSFR, (cSFR+GoUp));
+  setServo(SBL, cSBL, (cSBL+GoUp));
 }
 
 void setServoT(int GoUp){
   //Rechts: hoch addieren, Links: hoch subtrahieren
-  setServo(TVL, ctvl, (ctvl-GoUp));
-  setServo(THR, cthr, (cthr+GoUp));
-  setServo(TVR, ctvr, (ctvr+GoUp));
-  setServo(THL, cthl, (cthl-GoUp));
+  setServo(TFL, cTFL, (cTFL-GoUp));
+  setServo(TBR, cTBR, (cTBR+GoUp));
+  setServo(TFR, cTFR, (cTFR+GoUp));
+  setServo(TBL, cTBL, (cTBL-GoUp));
 }
 
 void setServoB(int GoUp){
   //Rechts: hoch subtrahieren, Links: hoch addieren
-  setServo(BVL, cbvl, cbvl+GoUp);
-  setServo(BHR, cbhr, cbhr-GoUp);
-  setServo(BVR, cbvr, cbvr-GoUp);
-  setServo(BHL, cbhl, cbhl+GoUp);
+  setServo(BFL, cBFL, cBFL+GoUp);
+  setServo(BBR, cBBR, cBBR-GoUp);
+  setServo(BFR, cBFR, cBFR-GoUp);
+  setServo(BBL, cBBL, cBBL+GoUp);
 }
 
 void setServoTB(int GoUp){
@@ -368,55 +428,130 @@ void checkIR(){
   if (irrecv.decode(&results)) {
     Serial.println(results.value, HEX);
     switch (results.value){
-      case FB0:
-        Serial.println("FB0");
-        Serial.println(csvl);
-        Serial.println(cshr);
-        Serial.println(csvr);
-        Serial.println(cshl);
-        Serial.println(ctvl);
-        Serial.println(cthr);
-        Serial.println(ctvr);
-        Serial.println(cthl);
-        Serial.println(cbvl);
-        Serial.println(cbhr);
-        Serial.println(cbvr);
-        Serial.println(cbhl);
+      case FBVOLUP:
+        Serial.println(cSFL);
+        Serial.println(cSBR);
+        Serial.println(cSFR);
+        Serial.println(cSBL);
+        Serial.println(cTFL);
+        Serial.println(cTBR);
+        Serial.println(cTFR);
+        Serial.println(cTBL);
+        Serial.println(cBFL);
+        Serial.println(cBBR);
+        Serial.println(cBFR);
+        Serial.println(cBBL);
         break;
       case FB1:
-        sidestepR();
+        if(controlmode == 0){
+          rotateL();
+          } else if(controlmode == 1){
+            selectedServo = SFL;
+            printf("Selected Servo: %d\n", selectedServo);
+          }
         break;
       case FB2:
-        setServo(SVL, csvl, 208);
-        setServo(SHR, cshr, 88);
-        setServo(SVR, csvr, 105);
-        setServo(SHL, cshl, 100);
-        setServo(TVL, ctvl, 90);
-        setServo(THR, cthr, 95);
-        setServo(TVR, ctvr, 100);
-        setServo(THL, cthl, 110);
-        setServo(BVL, cbvl, 85);
-        setServo(BHR, cbhr, 90);
-        setServo(BVR, cbvr, 122);
-        setServo(BHL, cbhl, 85);
+        if(controlmode == 0){
+          stand();
+        } else if(controlmode == 1){
+          selectedServo = TFL;
+          printf("Selected Servo: %d\n", selectedServo);
+        }
         break;
       case FB3:
-        GoTo(standpos);
+        if(controlmode == 0){
+          GoTo(standpos);
+          sitting = false;
+          standing = true;
+        } else if (controlmode == 1){
+          selectedServo = BFL;
+          printf("Selected Servo: %d\n", selectedServo);
+        }
         break;
       case FB4:
-        Serial.println("FB4");
-        sit();
+        if(controlmode == 0){
+          sit();
+        } else if (controlmode == 1){
+          selectedServo = SBR;
+          printf("Selected Servo: %d\n", selectedServo);
+        }  
         break;
       case FB5:
-        GoTo(sitpos);
+        if(controlmode == 0){
+          GoTo(sitpos);
+          sitting = true;
+          standing = false;
+        } else if (controlmode == 1){
+          selectedServo = TBR;
+          printf("Selected Servo: %d\n", selectedServo);
+        }
+        break;
+      case FB6:
+        if (controlmode ==1){
+          selectedServo = BBR;
+          printf("Selected Servo: %d\n", selectedServo);
+        }
+        break;
+      case FB7:
+        if (controlmode == 1){
+          selectedServo = SFR;
+          printf("Selected Servo: %d\n", selectedServo);
+        }
+        break;
+      case FB8:
+        if (controlmode == 1){
+          selectedServo = TFR;
+          printf("Selected Servo: %d\n", selectedServo);
+        }
+        break;
+      case FB9:
+        if (controlmode == 1){
+          selectedServo = BFR;
+          printf("Selected Servo: %d\n", selectedServo);
+        }
+        break;
+      case FB0:
+        if (controlmode == 1){
+          selectedServo = SBL;
+          printf("Selected Servo: %d\n", selectedServo);
+        }
+        break;
+      case FBEQ:
+        if (controlmode == 1){
+          selectedServo = TBL;
+          printf("Selected Servo: %d\n", selectedServo);
+        }
+        break;
+      case FBREPT:
+        if (controlmode == 1){
+          selectedServo = BBL;
+          printf("Selected Servo: %d\n", selectedServo);
+        }
         break;
       case FBUP:
-        setServoTB(5);
-        Serial.println("FBUP");
+        if(controlmode == 0){
+          setServoTB(5);
+          Serial.println("FBUP");
+        } else if(controlmode ==1){
+          moveServo(selectedServo, 1);
+        }
         break;
       case FBDOWN:
-        setServoTB(-5);
-        Serial.println("FBDOWN");
+        if(controlmode == 0){
+          setServoTB(-5);
+          Serial.println("FBDOWN");
+        } else if(controlmode == 1){
+          moveServo(selectedServo, -1);
+        }
+        break;
+      case FBFUNC:
+        if(controlmode == 0){
+          controlmode = 1;
+          Serial.println("Controlmode: 1");
+        }else{
+          controlmode = 0;
+          Serial.println("Controlmode: 0");
+        }
         break;
       default:
         Serial.println("Unknown");
@@ -427,43 +562,116 @@ void checkIR(){
   }
 }
 
+void moveServo(int selectedServo, int updown){
+  int step = 5*updown;
+  switch(selectedServo){
+    case SFL:
+      setServo(SFL, cSFL, cSFL+step);
+      break;
+    case TFL:
+      setServo(TFL, cTFL, cTFL-step);
+      break;
+    case BFL:
+      setServo(BFL, cBFL, cBFL+step);
+      break;
+    case SBR:
+      setServo(SBR, cSBR, cSBR+step);
+      break;
+    case TBR: 
+      setServo(TBR, cTBR, cTBR+step);
+      break;
+    case BBR:
+      setServo(BBR, cBBR, cBBR-step);
+      break;
+    case SFR:
+      setServo(SFR, cSFR, cSFR+step);
+      break;
+    case TFR:
+      setServo(TFR, cTFR, cTFR+step);
+      break;
+    case BFR:
+      setServo(BFR, cBFR, cBFR-step);
+      break;
+    case SBL:
+      setServo(SBL, cSBL, cSBL+step);
+      break;
+    case TBL:
+      setServo(TBL, cTBL, cTBL-step);
+      break;
+    case BBL:
+      setServo(BBL, cBBL, cBBL+step);
+      break;
+    default:
+      Serial.println("What?");
+      break;
+  }
+}
 void sidestepR(){
-  //Beine auseinander:
-  //Bein heben
-  setServo(BVR, cbvr, cbvr-10);
-  setServo(BHL, cbhl, cbhl+10);
-  delay(1000);
-  //Bein zur Seite
-  setServo(SVL, csvl, csvl+10);
-  setServo(SHR, cshr, cshr-10);
-  setServo(SVR, csvr, csvr-10);
-  setServo(SHL, cshl, cshl+10);
-  delay(1000);
-  //Bein absetzen
-  setServo(BVR, cbvr, cbvr+10);
-  setServo(BHL, cbhl, cbhl-10);
-  delay(5000);
-  //Beine zusammen:
-  setServo(BVL, cbvl, cbvl+10);
-  setServo(BHR, cbhr, cbhr-10);
-  delay(1000);
-  setServo(SVL, csvl, csvl-10);
-  setServo(SHR, cshr, cshr+10);
-  setServo(SVR, csvr, csvr+10);
-  setServo(SHL, cshl, cshl-10);
-  delay(1000);
-  setServo(BVL, cbvl, cbvl-10);
-  setServo(BHR, cbhr, cbhr+10);
+  if (standing){
+    setServo(BFR, cBFR, cBFR+35);
+    setServo(SFR, cSFR, cSFR-10);
+    setServo(BFR, cBFR, cBFR-35);
+    delay(500);
+    setServo(BBL, cBBL, cBBL-35);
+    setServo(SBL, cSBL, cSBL+10);
+    setServo(BBL, cBBL, cBBL+35);
+    delay(500);
+
+    setServo(BFL, cBFL, cBFL-35);
+    setServo(SFL, cSFL, cSFL-10);
+    setServo(BFL, cBFL, cBFL+35);
+    delay(500);
+    setServo(BBR, cBBR, cBBR+35);
+    setServo(SBR, cSBR, cSBR+10);
+    setServo(BBR, cBBR, cBBR-35);
+    delay(500);
+    setServo(SFR, cSFR, cSFR+10);
+    setServo(SBL, cSBL, cSBL-10);
+    setServo(SFL, cSFL, cSFL+10);
+    setServo(SBR, cSBR, cSBR-10);
+  }
 }
 
-void gyrosetup(){
+void rotateL(){
+  setServo(BFR, cBFR, cBFR+35);
+  setServo(SFR, cSFR, cSFR+10);
+  setServo(BFR, cBFR, cBFR-35);
+  delay(500);
+  setServo(BBL, cBBL, cBBL-35);
+  setServo(SBL, cSBL, cSBL+10);
+  setServo(BBL, cBBL, cBBL+35);
+  delay(500);
+  
+  setServo(BFL, cBFL, cBFL-35);
+  setServo(SFL, cSFL, cSFL+10);
+  setServo(BFL, cBFL, cBFL+35);
+  delay(500);
+  setServo(BBR, cBBR, cBBR+35);
+  setServo(SBR, cSBR, cSBR+10);
+  setServo(BBR, cBBR, cBBR-35);
+  delay(500);
+  setServo(SFR, cSFR, cSFR-10);
+  setServo(SBL, cSBL, cSBL-10);
+  setServo(SFL, cSFL, cSFL-10);
+  setServo(SBR, cSBR, cSBR-10);
+}
+/*void gyrosetup(){
+  int breakcounter = 0;
   if (!mpu.begin()){
     Serial.println("Sensor init failed");
     while(1){
       delay(10);
+      breakcounter++;
+      if (breakcounter == 100){
+        break;
+      }
     }
   }
+  if (breakcounter == 100){
+    Serial.println("Canceled gyro setup");
+  } else{
   Serial.println("Found MPU6050");
+  }
 
   mpu.setAccelerometerRange(MPU6050_RANGE_8_G);
   Serial.print("Accelerometer range set to: ");
@@ -523,21 +731,60 @@ void gyrosetup(){
       break;
   }
   Serial.println("");
+  calibrateGyro();
   delay(100);
 }
-
-void gyroread(){
+*/
+/*void gyroread(){
   sensors_event_t a, g, temp;
   mpu.getEvent(&a, &g, &temp);
-  Serial.print("Acceleration X: "); Serial.print(a.acceleration.x); Serial.print(" m/s^2");
-  Serial.print("Acceleration Y: "); Serial.print(a.acceleration.y); Serial.print(" m/s^2");
-  Serial.print("Acceleration Z: "); Serial.print(a.acceleration.z); Serial.print(" m/s^2");
+  float accelX = a.acceleration.x - accelXOffset;
+  float accelY = a.acceleration.y - accelYOffset;
+  float accelZ = a.acceleration.z - accelZOffset;
+  float gyroX = g.gyro.x - gyroXOffset;
+  float gyroY = g.gyro.y - gyroYOffset;
+  float gyroZ = g.gyro.z - gyroZOffset;
+
+  Serial.print("Acceleration X: "); Serial.print(accelX); Serial.print(" m/s^2");
+  Serial.print(" Acceleration Y: "); Serial.print(accelY); Serial.print(" m/s^2");
+  Serial.print(" Acceleration Z: "); Serial.print(accelZ); Serial.print(" m/s^2");
   Serial.println("");
-  // Serial.print("Gyro X: "); Serial.print(g.gyro.x); Serial.print(" rad/s");
-  // Serial.print("Gyro Y: "); Serial.print(g.gyro.y); Serial.print(" rad/s");
-  // Serial.print("Gyro Z: "); Serial.print(g.gyro.z); Serial.print(" rad/s");
-  // Serial.println("");
-  /*Serial.print("Temperature: "); Serial.print(temp.temperature); Serial.println(" deg C");
-  Serial.println("");*/
+
+  Serial.print("Gyro X: "); Serial.print(gyroX); Serial.print(" rad/s");
+  Serial.print(" Gyro Y: "); Serial.print(gyroY); Serial.print(" rad/s");
+  Serial.print(" Gyro Z: "); Serial.print(gyroZ); Serial.print(" rad/s");
+  Serial.println("");
   delay(500);
 }
+
+void calibrateGyro(){
+  
+  const int numReadings = 1000;
+  float accelXSum = 0, accelYSum = 0, accelZSum = 0;
+  float gyroXSum = 0, gyroYSum = 0, gyroZSum = 0;
+
+  for (int i = 0; i < numReadings; i++) {
+    sensors_event_t a, g, temp;
+    mpu.getEvent(&a, &g, &temp);
+
+    accelXSum += a.acceleration.x;
+    accelYSum += a.acceleration.y;
+    accelZSum += a.acceleration.z;
+    gyroXSum += g.gyro.x;
+    gyroYSum += g.gyro.y;
+    gyroZSum += g.gyro.z;
+
+    delay(10);
+  }
+
+  accelXOffset = accelXSum / numReadings;
+  accelYOffset = accelYSum / numReadings;
+  accelZOffset = accelZSum / numReadings;
+  gyroXOffset = gyroXSum / numReadings;
+  gyroYOffset = gyroYSum / numReadings;
+  gyroZOffset = gyroZSum / numReadings;
+
+  Serial.println("Calibration complete");
+  Serial.print("Accel Offsets: "); Serial.print(accelXOffset); Serial.print(", "); Serial.print(accelYOffset); Serial.print(", "); Serial.println(accelZOffset);
+  Serial.print("Gyro Offsets: "); Serial.print(gyroXOffset); Serial.print(", "); Serial.print(gyroYOffset); Serial.print(", "); Serial.println(gyroZOffset);
+}*/
