@@ -48,7 +48,7 @@
 #define FBDOWN 0xFFE01F
 #define FBLEFT 0x22DD
 #define FBRIGHT 0xFFC23D
-#define FBVOLUP 0xFF659D
+#define FBVOLUP 0xFF629D
 #define FBVOLDOWN 0xFFA857
 #define FBPLAY 0xFF02FD
 #define FBEQ 0xFF9867
@@ -66,25 +66,42 @@ decode_results results;
 Adafruit_MPU6050 mpu;
 
 int angleToPulse(int ang);
-//neutral positions
-const int nSFL = 203;
-const int nTFL = 125;
-const int nBFL = 23;
-const int nSBR = 88;
-const int nTBR = 60;
-const int nBBR = 160;
-const int nSFR = 110;
-const int nTFR = 65;
-const int nBFR = 185;
-const int nSBL = 100;
-const int nTBL = 145;
-const int nBBL = 15;
 
 //current positions
 int cSFL, cTFL, cBFL, cSBR, cTBR, cBBR, cSFR, cTFR, cBFR, cSBL, cTBL, cBBL;
+
+//neutral positions
+const int nSFL = 202;//197
+const int nTFL = 125;
+const int nBFL = 20;
+const int nSBR = 95;//90
+const int nTBR = 60;
+const int nBBR = 155;
+const int nSFR = 105;//110
+const int nTFR = 71;
+const int nBFR = 180;
+const int nSBL = 92;//97
+const int nTBL = 140;
+const int nBBL = 20;
+
+//Standing Positions
+const int sSFL = nSFL;
+const int sTFL = 85;
+const int sBFL = 100;
+const int sSBR = nSBR;
+const int sTBR = 100;
+const int sBBR = 75;
+const int sSFR = nSFR;
+const int sTFR = 111;
+const int sBFR = 100;
+const int sSBL = nSBL;
+const int sTBL = 100;
+const int sBBL = 100;
+
 //Bools for postions
 bool sitting = false;
 bool standing = false;
+bool walking = false;
 
 //Gyroscope offset values
 float accelXOffset = 0, accelYOffset = 0, accelZOffset = 0;
@@ -97,21 +114,24 @@ int testnumber = 3;
 void createPosStrings();    //Erstellt die Strings für die Positionen mithilfe der Variablen
 char sitpos[100];           
 char standpos[100];
-void home();
-void sit();
-void stand();
-void GoTo(const char* position);
-void sidestepR();
+void home();                    //Ausgansposition (Entspricht sit)
+void sit();                     //Fährt in Liegeposition
+void stand();                   //Fährt in Stehposition
+void GoTo(const char* position);//Nimmt einen String mit 12 Positionen und fährt  
+void sidestepR(); 
 void rotateL();
-void setServo(int motor, int &currmotor, int angle);
-void setServoS(int GoUp);
-void setServoT(int GoUp);
-void setServoB(int GoUp);
-void setServoTB(int GoUp);
+void walk();
+void walkback();
+void correctAll();              //Hebt die Beine kurz an um unebenheiten auszugleichen (Alpha)
+void setServo(int motor, int &currmotor, int angle);  //Bewegt einen Servo
+void setServoS(int GoUp);                             //Bewegt alle Seitlichen Servos
+void setServoT(int GoUp);                             //Bewegt alle Top Servos
+void setServoB(int GoUp);                             //Bewegt alle Bottom Servos
+void setServoTB(int GoUp);                            //Bewegt Top und Bottom Servos
 void readMacAdress();
 void onDataReceive(const uint8_t * mac, const uint8_t * data, int len);
 void checkIR();
-void moveServo(int selectedServo, int updown); //uodown: 1 = up, -1 = down
+void moveServo(int selectedServo, int updown); //Bewegt einen einzelnen Servo in 5er schritten //updown: 1 = up, -1 = down
 void gyrosetup();
 void gyroread();
 void calibrateGyro();
@@ -158,6 +178,9 @@ void loop() {
   } else {
     Serial.println("Error sending the data");
   }*/
+  if (walking){
+    walk();
+  }
 }
 
 int angleToPulse(int ang){
@@ -169,7 +192,7 @@ int angleToPulse(int ang){
 
 void createPosStrings(){
 snprintf(sitpos, sizeof(sitpos), "%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d", nSFL, nTFL, nBFL, nSBR, nTBR, nBBR, nSFR, nTFR, nBFR, nSBL, nTBL, nBBL);
-snprintf(standpos, sizeof(standpos), "%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d", nSFL, 90, 85,nSBR, 95, 90, nSFR, 100, 122, nSBL, 110, 85);
+snprintf(standpos, sizeof(standpos), "%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d", sSFL, sTFL, sBFL,sSBR, sTBR, sBBR, sSFR, sTFR, sBFR, sSBL, sTBL, sBBL);
 }
 
 void home() {
@@ -204,22 +227,31 @@ void sit(){ //Überflüssig?
   standing = false;
 }
 
-//Steht auf in 2 Schritten
+//Steht auf in 3 Schritten
 void stand() {
   if(sitting){ 
-    setServo(SFL, cSFL, 208); //Seiten ausrichten
-    setServo(SBR, cSBR, 88);
-    setServo(SFR, cSFR, 105);
-    setServo(SBL, cSBL, 100);
-    setServo(TFL, cTFL, 90); //Top ausrichten
-    setServo(TBR, cTBR, 95);
-    setServo(TFR, cTFR, 100);
-    setServo(TBL, cTBL, 110);
-    delay(500);
-    setServo(BFL, cBFL, 85);  //Bottom ausrichten
-    setServo(BBR, cBBR, 90);
-    setServo(BFR, cBFR, 122);
-    setServo(BBL, cBBL, 85);
+    setServo(SFL, cSFL, sSFL); //Seiten ausrichten
+    setServo(SBR, cSBR, sSBR);
+    setServo(SFR, cSFR, sSFR);
+    setServo(SBL, cSBL, sSBL);
+    setServo(TFL, cTFL, cTFL-((cTFL-sTFL)/2)); //Top halb ausrichten
+    setServo(TBR, cTBR, cTBR-((cTBR-sTBR)/2));
+    setServo(TFR, cTFR, cTFR-((cTFR-sTFR)/2));
+    setServo(TBL, cTBL, cTBL-((cTBL-sTBL)/2));
+    setServo(BFL, cBFL, cBFL-((cBFL-sBFL)/3));  //Bottom halb ausrichten
+    setServo(BBR, cBBR, cBBR-((cBBR-sBBR)/3));
+    setServo(BFR, cBFR, cBFR-((cBFR-sBFR)/3));
+    setServo(BBL, cBBL, cBBL-((cBBL-sBBL)/3));
+    delay(300);
+    setServo(TFL, cTFL, sTFL); //Top ausrichten
+    setServo(TBR, cTBR, sTBR);
+    setServo(TFR, cTFR, sTFR);
+    setServo(TBL, cTBL, sTBL);
+    delay(300);
+    setServo(BFL, cBFL, sBFL);  //Bottom ausrichten
+    setServo(BBR, cBBR, sBBR);
+    setServo(BFR, cBFR, sBFR);
+    setServo(BBL, cBBL, sBBL);
   }
   sitting = false;
   standing = true;
@@ -232,6 +264,7 @@ void GoTo(const char* positions) {
   int targetPositions[12];
   int index = 0;
   int start = 0;
+  //Legt zuerst die Zielpositionen aller Servos in ein Array targetPositions
   for (int i = 0; i < strlen(positions); i++) {
     if (positions[i] == ',') {
       char buffer[10]; 
@@ -241,11 +274,11 @@ void GoTo(const char* positions) {
       start = i + 1;
     }
   }
-  
   char buffer[10];
   strncpy(buffer, positions + start, strlen(positions) - start);
   buffer[strlen(positions) - start] = '\0';
   targetPositions[index] = atoi(buffer);
+  //Vergleicht Soll und Ist der einzelnen Motoren und passt sie in stepSize-Schritten an
   while (!allServosAtTarget) {
     allServosAtTarget = true;
 
@@ -373,7 +406,7 @@ void GoTo(const char* positions) {
       allServosAtTarget = false;
     } 
 
-    delay(50);
+    delay(20);
   }
 }
 
@@ -430,21 +463,21 @@ void checkIR(){
     switch (results.value){
       case FBVOLUP:
         Serial.println(cSFL);
-        Serial.println(cSBR);
-        Serial.println(cSFR);
-        Serial.println(cSBL);
         Serial.println(cTFL);
-        Serial.println(cTBR);
-        Serial.println(cTFR);
-        Serial.println(cTBL);
         Serial.println(cBFL);
+        Serial.println(cSBR);
+        Serial.println(cTBR);
         Serial.println(cBBR);
+        Serial.println(cSFR);
+        Serial.println(cTFR);
         Serial.println(cBFR);
+        Serial.println(cSBL);
+        Serial.println(cTBL);
         Serial.println(cBBL);
         break;
       case FB1:
         if(controlmode == 0){
-          rotateL();
+          sidestepR();
           } else if(controlmode == 1){
             selectedServo = SFL;
             printf("Selected Servo: %d\n", selectedServo);
@@ -470,7 +503,7 @@ void checkIR(){
         break;
       case FB4:
         if(controlmode == 0){
-          sit();
+          walk();
         } else if (controlmode == 1){
           selectedServo = SBR;
           printf("Selected Servo: %d\n", selectedServo);
@@ -487,13 +520,17 @@ void checkIR(){
         }
         break;
       case FB6:
-        if (controlmode ==1){
+      if(controlmode == 0){
+        walking = !walking;
+      } else if (controlmode ==1){
           selectedServo = BBR;
           printf("Selected Servo: %d\n", selectedServo);
         }
         break;
       case FB7:
-        if (controlmode == 1){
+        if (controlmode == 0){
+          walkback();
+        } else if (controlmode == 1){
           selectedServo = SFR;
           printf("Selected Servo: %d\n", selectedServo);
         }
@@ -608,22 +645,22 @@ void moveServo(int selectedServo, int updown){
 }
 void sidestepR(){
   if (standing){
-    setServo(BFR, cBFR, cBFR+35);
+    setServo(BFR, cBFR, cBFR+50);
     setServo(SFR, cSFR, cSFR-10);
-    setServo(BFR, cBFR, cBFR-35);
+    setServo(BFR, cBFR, cBFR-50);
     delay(500);
-    setServo(BBL, cBBL, cBBL-35);
+    setServo(BBL, cBBL, cBBL-50);
     setServo(SBL, cSBL, cSBL+10);
-    setServo(BBL, cBBL, cBBL+35);
+    setServo(BBL, cBBL, cBBL+50);
     delay(500);
 
-    setServo(BFL, cBFL, cBFL-35);
+    setServo(BFL, cBFL, cBFL-50);
     setServo(SFL, cSFL, cSFL-10);
-    setServo(BFL, cBFL, cBFL+35);
+    setServo(BFL, cBFL, cBFL+50);
     delay(500);
-    setServo(BBR, cBBR, cBBR+35);
+    setServo(BBR, cBBR, cBBR+50);
     setServo(SBR, cSBR, cSBR+10);
-    setServo(BBR, cBBR, cBBR-35);
+    setServo(BBR, cBBR, cBBR-50);
     delay(500);
     setServo(SFR, cSFR, cSFR+10);
     setServo(SBL, cSBL, cSBL-10);
@@ -633,28 +670,131 @@ void sidestepR(){
 }
 
 void rotateL(){
-  setServo(BFR, cBFR, cBFR+35);
+  setServo(BFR, cBFR, cBFR+50);
+  delay(20);
   setServo(SFR, cSFR, cSFR+10);
-  setServo(BFR, cBFR, cBFR-35);
-  delay(500);
-  setServo(BBL, cBBL, cBBL-35);
+  delay(20);
+  setServo(BFR, cBFR, cBFR-50);
+  delay(200);
+  setServo(BBL, cBBL, cBBL-50);
+  delay(20);
   setServo(SBL, cSBL, cSBL+10);
-  setServo(BBL, cBBL, cBBL+35);
-  delay(500);
+  delay(20);
+  setServo(BBL, cBBL, cBBL+50);
+  delay(200);
   
-  setServo(BFL, cBFL, cBFL-35);
+  setServo(BFL, cBFL, cBFL-50);
+  delay(20);
   setServo(SFL, cSFL, cSFL+10);
-  setServo(BFL, cBFL, cBFL+35);
-  delay(500);
-  setServo(BBR, cBBR, cBBR+35);
+  delay(20);
+  setServo(BFL, cBFL, cBFL+50);
+  delay(200);
+  setServo(BBR, cBBR, cBBR+50);
+  delay(20);
   setServo(SBR, cSBR, cSBR+10);
-  setServo(BBR, cBBR, cBBR-35);
-  delay(500);
+  delay(20);
+  setServo(BBR, cBBR, cBBR-50);
+  delay(200);
   setServo(SFR, cSFR, cSFR-10);
   setServo(SBL, cSBL, cSBL-10);
   setServo(SFL, cSFL, cSFL-10);
   setServo(SBR, cSBR, cSBR-10);
 }
+
+void walk(){
+  setServo(BFR, cBFR, cBFR+20);
+  setServo(TFR, cTFR, sTFR+15);
+  delay(100);
+  setServo(BFR, cBFR, sBFR-5);
+  // setServo(TFR, cTFR, sTFR);
+  setServoT(-5);
+  delay(100);
+
+  setServo(BBL, cBBL, cBBL-20);
+  setServo(TBL, cTBL, sTBL-5);
+  delay(100);
+  setServo(BBL, cBBL, sBBL);
+  // setServo(TBL, cTBL, sTBL);
+  setServoT(-5);
+  delay(100);
+    
+  setServo(BFL, cBFL, cBFL-25);
+  setServo(TFL, cTFL, sTFL-5);
+  delay(100);
+  setServo(BFL, cBFL, sBFL);
+  // setServo(TFL, cTFL, sTFL);
+  setServoT(-5);
+  delay(100);
+
+  setServo(BBR, cBBR, cBBR+15);
+  setServo(TBR, cTBR, sTBR);
+  delay(100);
+  setServo(BBR, cBBR, sBBR);
+  // setServo(TBR, cTBR, sTBR);
+  // delay(200);
+
+  // setServo(TFR, cTFR, sTFR+10);
+  // setServo(TFL, cTFL, sTFL+10);
+  // setServo(TBR, cTBR, sTBR+10);
+  // setServo(TBL, cTBL, sTBL+10);
+
+
+  delay(100);
+  GoTo(standpos);
+
+}
+
+void walkback(){
+  setServo(BFR, cBFR, cBFR+20);
+  setServo(TFR, cTFR, sTFR-20);
+  delay(100);
+  setServo(BFR, cBFR, sBFR-5);
+  // setServo(TFR, cTFR, sTFR);
+  setServoT(+5);
+  delay(100);
+
+  setServo(BBL, cBBL, cBBL-20);
+  setServo(TBL, cTBL, sTBL+10);
+  delay(100);
+  setServo(BBL, cBBL, sBBL);
+  // setServo(TBL, cTBL, sTBL);
+  setServoT(+5);
+  delay(100);
+    
+  setServo(BFL, cBFL, cBFL-25);
+  setServo(TFL, cTFL, sTFL+5);
+  delay(100);
+  setServo(BFL, cBFL, sBFL);
+  // setServo(TFL, cTFL, sTFL);
+  setServoT(+5);
+  delay(100);
+
+  setServo(BBR, cBBR, cBBR+25);
+  setServo(TBR, cTBR, sTBR-5);
+  delay(100);
+  setServo(BBR, cBBR, sBBR-10);
+  // setServo(TBR, cTBR, sTBR);
+  // delay(200);
+
+  // setServo(TFR, cTFR, sTFR+10);
+  // setServo(TFL, cTFL, sTFL+10);
+  // setServo(TBR, cTBR, sTBR+10);
+  // setServo(TBL, cTBL, sTBL+10);
+
+
+  delay(100);
+  GoTo(standpos);
+
+}
+
+void correctAll(){
+GoTo(standpos);
+delay(100);
+setServoTB(-10);
+delay(100);
+setServoTB(10);
+}
+
 /*void gyrosetup(){
   int breakcounter = 0;
   if (!mpu.begin()){
