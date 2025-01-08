@@ -158,26 +158,19 @@ void setup() {
   peerInfo.channel = 0;
   peerInfo.encrypt = false;
   esp_err_t addPeerResult = esp_now_add_peer(&peerInfo);
-  /*if (esp_now_add_peer(&peerInfo) != ESP_OK) {
+  if (esp_now_add_peer(&peerInfo) != ESP_OK) {
     Serial.println("Failed to add peer");
     Serial.println(addPeerResult);
     return;
   }else{
     Serial.println("Peer added");
-  }*/
+  }
   //gyrosetup();
 }
 
 void loop() {
   checkIR();
   //gyroread();
-  /*delay(5000);
-  esp_err_t result = esp_now_send(remoteMac, (uint8_t *) &testnumber, sizeof(testnumber));
-  if (result == ESP_OK) {
-    Serial.println("Sent with success");
-  } else {
-    Serial.println("Error sending the data");
-  }*/
   if (walking){
     walk();
   }
@@ -455,6 +448,14 @@ void onDataReceive(const uint8_t * mac, const uint8_t * data, int len) {
   Serial.println("Received data");
   memcpy(&receivedNumber, data, sizeof(receivedNumber));
   Serial.println(receivedNumber);
+  if (receivedNumber == 69){
+    esp_err_t result = esp_now_send(remoteMac, (uint8_t *) &walking, sizeof(walking));
+    if (result == ESP_OK) {
+      Serial.println("Sent with success");
+    } else {
+      Serial.println("Error sending the data");
+    }
+  }
 }
 
 void checkIR(){
