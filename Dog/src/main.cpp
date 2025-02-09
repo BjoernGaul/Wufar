@@ -71,32 +71,32 @@ int angleToPulse(int ang);
 int cSFL, cTFL, cBFL, cSBR, cTBR, cBBR, cSFR, cTFR, cBFR, cSBL, cTBL, cBBL;
 
 //neutral positions
-const int nSFL = 202;//197
+const int nSFL = 212;//197
 const int nTFL = 125;
 const int nBFL = 20;
-const int nSBR = 95;//90
-const int nTBR = 60;
+const int nSBR = 40;//95 90
+const int nTBR = 60;//60
 const int nBBR = 155;
-const int nSFR = 105;//110
-const int nTFR = 71;
+const int nSFR = 95;//110
+const int nTFR = 160;//71
 const int nBFR = 180;
-const int nSBL = 92;//97
+const int nSBL = 140;//92 97
 const int nTBL = 140;
-const int nBBL = 20;
+const int nBBL = 30;//20
 
 //Standing Positions
 const int sSFL = nSFL;
-const int sTFL = 85;
-const int sBFL = 100;
+const int sTFL = nTFL-40;//85;
+const int sBFL = nBFL+80;//100;
 const int sSBR = nSBR;
-const int sTBR = 100;
-const int sBBR = 75;
+const int sTBR = nTBR+40;//100;
+const int sBBR = nBBR-80;//75;
 const int sSFR = nSFR;
-const int sTFR = 111;
-const int sBFR = 100;
+const int sTFR = nTFR+40;//111;
+const int sBFR = nBFR-80;//100;
 const int sSBL = nSBL;
-const int sTBL = 100;
-const int sBBL = 100;
+const int sTBL = nTBL-40;//100;
+const int sBBL = nBBL+80;//100;
 
 //Bools for postions
 bool sitting = false;
@@ -128,6 +128,7 @@ void setServoS(int GoUp);                             //Bewegt alle Seitlichen S
 void setServoT(int GoUp);                             //Bewegt alle Top Servos
 void setServoB(int GoUp);                             //Bewegt alle Bottom Servos
 void setServoTB(int GoUp);                            //Bewegt Top und Bottom Servos
+void setServoSlow(int motor, int &currmotor, int angle, int stepsize); //Bewegt einen Servo langsam
 void readMacAdress();
 void onDataReceive(const uint8_t * mac, const uint8_t * data, int len);
 void checkIR();
@@ -174,12 +175,18 @@ void loop() {
   if (walking){
     walk();
   }
+  // for (int angle = 0; angle <= 270; angle++) {
+  //     setServo(SFL, cSFL, angle);
+  //     delay(15);  // Delay for smooth movement
+  // }
+  // for (int angle = 270; angle >= 0; angle--) {
+  //     setServo(SFL, cSFL, angle);
+  //     delay(15);  // Delay for smooth movement
+  // }
 }
 
 int angleToPulse(int ang){
-  int pulse = map(ang,0, 270, SERVOMIN,SERVOMAX);  
-  Serial.print("Angle: ");Serial.print(ang);
-  Serial.print(" pulse: ");Serial.println(pulse);
+  int pulse = map(ang,0, 270, SERVOMIN,SERVOMAX);
   return pulse;
 }
 
@@ -251,7 +258,7 @@ void stand() {
 }
 
 void GoTo(const char* positions) {
-  int stepSize = 5;
+  int stepSize = 1;
   bool allServosAtTarget = false;
 
   int targetPositions[12];
@@ -406,7 +413,22 @@ void GoTo(const char* positions) {
 void setServo(int motor, int &currmotor, int angle){
   servoDriver_module.setPWM(motor, 0, angleToPulse(angle));
   currmotor = angle;
-  delay(20);
+}
+
+void setServoSlow(int motor, int &currmotor, int angle, int stepsize){
+  if (currmotor < angle){
+    for (int i = currmotor; i <= angle; i+=stepsize){
+      setServo(motor, currmotor, i);
+      delay(10);
+    }
+  }else if (currmotor > angle){
+    for (int i = currmotor; i >= angle; i-=stepsize){
+      setServo(motor, currmotor, i);
+      delay(10);
+    }
+  }else if (currmotor - angle < stepsize){
+    setServo(motor, currmotor, angle);
+  }
 }
 
 void setServoS(int GoUp){
@@ -703,34 +725,34 @@ void rotateL(){
 }
 
 void walk(){
-  setServo(BFR, cBFR, cBFR+20);
+  setServo(BFR, cBFR, cBFR+30);
   setServo(TFR, cTFR, sTFR+15);
   delay(100);
-  setServo(BFR, cBFR, sBFR-5);
+  setServo(BFR, cBFR, sBFR-10);
   // setServo(TFR, cTFR, sTFR);
   setServoT(-5);
   delay(100);
 
-  setServo(BBL, cBBL, cBBL-20);
+  setServo(BBL, cBBL, cBBL-30);
   setServo(TBL, cTBL, sTBL-5);
   delay(100);
-  setServo(BBL, cBBL, sBBL);
+  setServo(BBL, cBBL, sBBL+10);
   // setServo(TBL, cTBL, sTBL);
   setServoT(-5);
   delay(100);
     
-  setServo(BFL, cBFL, cBFL-25);
+  setServo(BFL, cBFL, cBFL-35);
   setServo(TFL, cTFL, sTFL-5);
   delay(100);
-  setServo(BFL, cBFL, sBFL);
+  setServo(BFL, cBFL, sBFL-10);
   // setServo(TFL, cTFL, sTFL);
   setServoT(-5);
   delay(100);
 
-  setServo(BBR, cBBR, cBBR+15);
+  setServo(BBR, cBBR, cBBR+25);
   setServo(TBR, cTBR, sTBR);
   delay(100);
-  setServo(BBR, cBBR, sBBR);
+  setServo(BBR, cBBR, sBBR+10);
   // setServo(TBR, cTBR, sTBR);
   // delay(200);
 
