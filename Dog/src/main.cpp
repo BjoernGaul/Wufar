@@ -13,11 +13,6 @@
 #include <Adafruit_MPU6050.h>
 #include "functions.h"
 
-
-#define SERVOMIN 125
-#define SERVOMAX 600
-
-
 //Pin of Servos
 #define SFL 0
 #define TFL 1
@@ -56,6 +51,13 @@
 #define FBREPT 0xFFB04F
 #define FBFUNC 0xFFE21D
 
+#define L1 8.4   // Oberschenkellänge (cm)
+#define L2 12.2  // Unterschenkellänge (cm)
+#define Z_STAND 14.0  // Ziel-Hüfthöhe für gebeugte Standhaltung
+#define X_OFFSET 3.0  // Füße leicht vor der Hüfte für Stabilität
+#define Y_OFFSET 5.0  // Abstand der Füße zur Mitte (seitlich)
+
+
 const uint16_t RECV_PIN = 4;
 //Variablen für Fernbedienung
 int controlmode = 0;
@@ -66,10 +68,11 @@ IRrecv irrecv(RECV_PIN);
 decode_results results;
 Adafruit_MPU6050 mpu;
 
-int angleToPulse(int ang);
+
 
 //current positions
-int cSFL, cTFL, cBFL, cSBR, cTBR, cBBR, cSFR, cTFR, cBFR, cSBL, cTBL, cBBL;
+int cSFL = 0, cTFL = 0, cBFL = 0, cSBR = 0, cTBR = 0, cBBR = 0, cSFR = 0, cTFR = 0, cBFR = 0, cSBL = 0, cTBL = 0, cBBL = 0;
+int* cPositions[13] = {&cSFL, &cTFL, &cBFL, &cSBR, &cTBR, &cBBR,nullptr, &cSFR, &cTFR, &cBFR, &cSBL, &cTBL, &cBBL};
 
 //neutral positions
 const int nSFL = 212;//197
@@ -84,6 +87,7 @@ const int nBFR = 185;
 const int nSBL = 15;
 const int nTBL = 60;
 const int nBBL = 155;
+const int nPositions[13] = {nSFL, nTFL, nBFL, nSBR, nTBR, nBBR,-1, nSFR, nTFR, nBFR, nSBL, nTBL, nBBL};
 
 //Standing Positions
 const int sSFL = nSFL;
@@ -98,6 +102,7 @@ const int sBFR = nBFR-60;
 const int sSBL = nSBL;
 const int sTBL = nTBL+30;
 const int sBBL = nBBL-60;
+const int sPositions[13] = {sSFL, sTFL, sBFL, sSBR, sTBR, sBBR,-1, sSFR, sTFR, sBFR, sSBL, sTBL, sBBL};
 
 //Bools for postions
 bool sitting = false;
@@ -114,10 +119,14 @@ int testnumber = 3;
 
 void waitforButton();
 bool paused = false;
-void createPosStrings();    //Erstellt die Strings für die Positionen mithilfe der Variablen
-char sitpos[100];           
-char standpos[100];
-char slideright[100];
+
+
+const int sitpos[12] = {nSFL, nTFL, nBFL, nSBR, nTBR, nBBR, nSFR, nTFR, nBFR, nSBL, nTBL, nBBL};
+const int standpos[12] = {sSFL, sTFL, sBFL, sSBR, sTBR, sBBR, sSFR, sTFR, sBFR, sSBL, sTBL, sBBL};
+const int slideright[12] = {232,90,90,158,109,72,97,191,143,0,95,85};
+
+char command[10];
+int idx = 0;
 
 void readMacAdress();
 void onDataReceive(const uint8_t * mac, const uint8_t * data, int len);
@@ -131,7 +140,6 @@ void setup() {
   Serial.begin(9600);
   servoDriver_module.begin();
   servoDriver_module.setPWMFreq(50);    //Arbeitsfrequenz
-  createPosStrings();
   home();
   irrecv.enableIRIn(); //Infrarotfernbedienung
   Serial.println("IR enabled");
@@ -172,18 +180,40 @@ void loop() {
   //     setServo(SFL, cSFL, angle);
   //     delay(15);  // Delay for smooth movement
   // }
+  if (Serial.available())
+  {
+    char c = Serial.read();
+    if (idx == 10)
+    {                 //Wenn 20 Zeichen in command sind, wird der buffer gelöscht
+      idx = 0;
+      for (int i = 0; i < 10; i++)
+      {
+        command[i] = '\0';
+      }
+      Serial.println("Buffer overflow, reset");
+    }
+    else if (c == '\n') //Enter
+    { 
+      setServo(BFL, atoi(command));
+      idx = 0;
+      for (int i = 0; i < 10; i++)
+      {
+        command[i] = '\0';
+      }
+    }
+    else if (c == '\r')
+    { 
+    }
+    else
+    { 
+      command[idx] = c;
+      idx++;
+    }
+  }
 }
 
-int angleToPulse(int ang){
-  int pulse = map(ang,0, 270, SERVOMIN,SERVOMAX);
-  return pulse;
-}
 
-void createPosStrings(){
-snprintf(sitpos, sizeof(sitpos), "%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d", nSFL, nTFL, nBFL, nSBR, nTBR, nBBR, nSFR, nTFR, nBFR, nSBL, nTBL, nBBL);
-snprintf(standpos, sizeof(standpos), "%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d", sSFL, sTFL, sBFL,sSBR, sTBR, sBBR, sSFR, sTFR, sBFR, sSBL, sTBL, sBBL);
-snprintf(slideright, sizeof(slideright), "232,90,90,158,109,72,97,191,143,0,95,85"); 
-}
+
 
 void waitforButton(){
   irrecv.resume();
@@ -192,23 +222,6 @@ void waitforButton(){
   while (paused)(checkIR());
 }
 
-void home() {
-  setServo(SFL, cSFL, nSFL);
-  setServo(SBR, cSBR, nSBR);
-  setServo(SFR, cSFR, nSFR);
-  setServo(SBL, cSBL, nSBL);
-  setServo(TFL, cTFL, nTFL);
-  setServo(TBR, cTBR, nTBR);
-  setServo(TFR, cTFR, nTFR);
-  setServo(TBL, cTBL, nTBL);
-  setServo(BFL, cBFL, nBFL);
-  setServo(BBR, cBBR, nBBR);
-  setServo(BFR, cBFR, nBFR);
-  setServo(BBL, cBBL, nBBL);
-  sitting = true;
-  standing = false;
-  return;
-}
 
 
 //Steht auf in 3 Schritten
@@ -315,10 +328,10 @@ void checkIR(){
       case FB8:
       if (controlmode == 0){
         //Zum Testen einzelner Bewegungen
-        setServo(TFL, cTFL, (cTFL-5));
-        setServo(TBR, cTBR, (cTBR+5));
-        setServo(TFR, cTFR, (cTFR-5));
-        setServo(TBL, cTBL, (cTBL+5));
+        setServo(TFL, (cTFL-5));
+        setServo(TBR, (cTBR+5));
+        setServo(TFR, (cTFR-5));
+        setServo(TBL, (cTBL+5));
       } else
         if (controlmode == 1){
           selectedServo = TFR;
@@ -519,3 +532,56 @@ void calibrateGyro(){
   Serial.print("Accel Offsets: "); Serial.print(accelXOffset); Serial.print(", "); Serial.print(accelYOffset); Serial.print(", "); Serial.println(accelZOffset);
   Serial.print("Gyro Offsets: "); Serial.print(gyroXOffset); Serial.print(", "); Serial.print(gyroYOffset); Serial.print(", "); Serial.println(gyroZOffset);
 }*/
+
+
+
+
+// Globale Variablen für die aktuellen Servo-Winkel
+float currentTheta1[4] = {0, 0, 0, 0};  
+float currentTheta2[4] = {0, 0, 0, 0};  
+float currentTheta3[4] = {0, 0, 0, 0};  
+/*
+// Funktion zur Berechnung der inversen Kinematik für ein Bein in 3D
+void computeIK(float x, float y, float z, float &theta1, float &theta2, float &theta3) {
+    theta1 = atan2(y, x) * 180.0 / M_PI;  // Hüftrotation (links/rechts)
+
+    float d = sqrt(x*x + z*z);  // Abstand von Hüfte zum Fuß in 2D
+
+    float cosTheta3 = (L1*L1 + L2*L2 - d*d) / (2 * L1 * L2);
+    theta3 = acos(cosTheta3) * 180.0 / M_PI;  // Kniewinkel in Grad
+
+    float alpha = atan2(z, x);  // Basiswinkel von Fuß zu Hüfte
+    float beta = acos((L1*L1 + d*d - L2*L2) / (2 * L1 * d));
+    theta2 = (alpha + beta) * 180.0 / M_PI;  // Hüftwinkel in Grad
+}
+
+// Funktion zum Bewegen eines Beins mit Differenz-Winkel
+void moveLegToPosition(int legID, float x, float y, float z) {
+    float theta1, theta2, theta3;
+    
+    computeIK(x, y, z, theta1, theta2, theta3);
+
+    // Differenz zum aktuellen Winkel berechnen
+    float deltaTheta1 = theta1 - currentTheta1[legID];
+    float deltaTheta2 = theta2 - currentTheta2[legID];
+    float deltaTheta3 = theta3 - currentTheta3[legID];
+
+    // Servo um die Differenz bewegen
+    moveServo(legID * 3 + 1, currentTheta1[legID] + deltaTheta1);
+    moveServo(legID * 3 + 2, currentTheta2[legID] + deltaTheta2);
+    moveServo(legID * 3 + 3, currentTheta3[legID] + deltaTheta3);
+
+    // Neue Winkelwerte speichern
+    currentTheta1[legID] += deltaTheta1;
+    currentTheta2[legID] += deltaTheta2;
+    currentTheta3[legID] += deltaTheta3;
+}
+
+// Funktion zum Einstellen der Standard-Standposition für alle 4 Beine
+void setStandingPose() {
+    moveLegToPosition(0, X_OFFSET, Y_OFFSET, Z_STAND);  // Linkes Vorderbein
+    moveLegToPosition(1, X_OFFSET, -Y_OFFSET, Z_STAND); // Rechtes Vorderbein
+    moveLegToPosition(2, -X_OFFSET, Y_OFFSET, Z_STAND); // Linkes Hinterbein
+    moveLegToPosition(3, -X_OFFSET, -Y_OFFSET, Z_STAND); // Rechtes Hinterbein
+}
+    */
