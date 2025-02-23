@@ -14,7 +14,7 @@
 #include <Adafruit_MPU6050.h>
 
 extern Adafruit_PWMServoDriver servoDriver_module;
-extern int cSFL, cTFL, cBFL, cSBR, cTBR, cBBR, cSFR, cTFR, cBFR, cSBL, cTBL, cBBL;
+/*extern int cSFL, cTFL, cBFL, cSBR, cTBR, cBBR, cSFR, cTFR, cBFR, cSBL, cTBL, cBBL;
 extern const int nSFL, nTFL, nBFL, nSBR, nTBR, nBBR, nSFR, nTFR, nBFR, nSBL, nTBL, nBBL;
 extern const int sSFL, sTFL, sBFL, sSBR, sTBR, sBBR, sSFR, sTFR, sBFR, sSBL, sTBL, sBBL;
 extern int* cPositions[13];
@@ -28,11 +28,8 @@ extern uint8_t remoteMac[6];
 extern bool walking;
 extern bool sitting;
 extern bool standing;
-extern int selectedServo;
+extern int selectedServo;*/
 
-extern void checkIR();
-extern void waitforButton();
-extern int angleToPulse(int ang);
 
 #define SFL 0
 #define TFL 1
@@ -51,19 +48,19 @@ extern int angleToPulse(int ang);
 
 
 int angleToPulse(int ang){
-  int pulse = map(ang,0, 270, SERVOMIN,SERVOMAX);
-  return pulse;
+    int pulse = map(ang,0, 270, SERVOMIN,SERVOMAX);
+    return pulse;
 }
 
-int getArrayIndex(int pin) {
-  if (pin >= 0 && pin <= 5) {
-      return pin;
-  } else if (pin >= 7 && pin <= 12) {
-      return pin - 1;
-  } else {
-      Serial.println("Invalid pin number");
-      return -1;
+
+void setServo(int motor, int angle) {
+  if (motor == 6) {
+      Serial.println("Invalid servo number");
+      return;
   }
+    int adjustedAngle = angle + servoOffsets[motor];
+    servoDriver_module.setPWM(motor, 0, angleToPulse(adjustedAngle));
+  *cPositions[motor] = angle;
 }
 
 
@@ -314,20 +311,7 @@ void GoTo(const int targetPositions[12])
     }
 }
 
-void setServo(int motor, int angle) {
-  if (motor == 6) {
-      Serial.println("Invalid servo number");
-      return;
-  }
-  servoDriver_module.setPWM(motor, 0, angleToPulse(angle));
-  *cPositions[motor] = angle;
-}
 
-/*void setServo(int motor, int &currmotor, int angle)
-{
-  servoDriver_module.setPWM(motor, 0, angleToPulse(angle));
-  currmotor = angle;
-}*/
 void setServoSlow(int motor, int angle, int stepsize) {
   if (motor == 6) {
       Serial.println("Invalid servo number");
@@ -389,85 +373,7 @@ void moveServo(int selectedServo, int updown) {
   int step = 5 * updown;
   setServo(selectedServo, *cPositions[selectedServo] + step);
 }
-/*
-void moveServo(int selectedServo, int updown)
-{
-    int step = 5 * updown;
-    switch (selectedServo)
-    {
-    case SFL:
-        setServo(SFL, cSFL + step);
-        break;
-    case TFL:
-        setServo(TFL, cTFL - step);
-        break;
-    case BFL:
-        setServo(BFL, cBFL + step);
-        break;
-    case SBR:
-        setServo(SBR, cSBR + step);
-        break;
-    case TBR:
-        setServo(TBR, cTBR - step);
-        break;
-    case BBR:
-        setServo(BBR, cBBR + step);
-        break;
-    case SFR:
-        setServo(SFR, cSFR + step);
-        break;
-    case TFR:
-        setServo(TFR, cTFR + step);
-        break;
-    case BFR:
-        setServo(BFR, cBFR - step);
-        break;
-    case SBL:
-        setServo(SBL, cSBL + step);
-        break;
-    case TBL:
-        setServo(TBL, cTBL + step);
-        break;
-    case BBL:
-        setServo(BBL, cBBL - step);
-        break;
-    default:
-        Serial.println("What?");
-        break;
-    }
-}
 
-void moveServo(int selectedServo, int updown)
-{
-    int step = 5 * updown;
-    int index = getArrayIndex(selectedServo);
-    if (index != -1) {
-        switch (selectedServo) {
-            case SFL:
-            case BFL:
-            case SBR:
-            case BBR:
-            case SFR:
-            case SBL:
-                setServo(selectedServo, *cPositions[index] + step);
-                break;
-            case TFL:
-            case TBR:
-            case TFR:
-            case TBL:
-            case BFR:
-            case BBL:
-                setServo(selectedServo, *cPositions[index] - step);
-                break;
-            default:
-                Serial.println("Invalid servo number");
-                break;
-        }
-    } else {
-        Serial.println("Invalid servo number");
-    }
-}
-*/
 void sidestepR()
 {
     if (standing)

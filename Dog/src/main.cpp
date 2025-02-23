@@ -53,9 +53,9 @@
 
 #define L1 8.4   // Oberschenkellänge (cm)
 #define L2 12.2  // Unterschenkellänge (cm)
-#define Z_STAND 14.0  // Ziel-Hüfthöhe für gebeugte Standhaltung
-#define X_OFFSET 3.0  // Füße leicht vor der Hüfte für Stabilität
-#define Y_OFFSET 5.0  // Abstand der Füße zur Mitte (seitlich)
+#define Z_STAND 15.0  // Ziel-Hüfthöhe für gebeugte Standhaltung
+#define X_OFFSET 2.0  // Füße leicht vor der Hüfte für Stabilität
+#define Y_OFFSET 2.0  // Abstand der Füße zur Mitte (seitlich)
 
 
 const uint16_t RECV_PIN = 4;
@@ -74,19 +74,21 @@ Adafruit_MPU6050 mpu;
 int cSFL = 0, cTFL = 0, cBFL = 0, cSBR = 0, cTBR = 0, cBBR = 0, cSFR = 0, cTFR = 0, cBFR = 0, cSBL = 0, cTBL = 0, cBBL = 0;
 int* cPositions[13] = {&cSFL, &cTFL, &cBFL, &cSBR, &cTBR, &cBBR,nullptr, &cSFR, &cTFR, &cBFR, &cSBL, &cTBL, &cBBL};
 
+
 //neutral positions
-const int nSFL = 212;//197
-const int nTFL = 125;
-const int nBFL = 20;
-const int nSBR = 160;
-const int nTBR = 140;
-const int nBBR = 30;
-const int nSFR = 95;//110
-const int nTFR = 160;//71
-const int nBFR = 185;
-const int nSBL = 15;
-const int nTBL = 60;
-const int nBBL = 155;
+const int servoOffsets[13] = {146, 125, 20, 150, 140, 30, -1, 99, 160, 185, 30, 60, 155}; //Offset
+const int nSFL = 0;
+const int nTFL = 0;
+const int nBFL = 0;
+const int nSBR = 0;
+const int nTBR = 0;
+const int nBBR = 0;
+const int nSFR = 0;
+const int nTFR = 0;
+const int nBFR = 0;
+const int nSBL = 0;
+const int nTBL = 0;
+const int nBBL = 0;
 const int nPositions[13] = {nSFL, nTFL, nBFL, nSBR, nTBR, nBBR,-1, nSFR, nTFR, nBFR, nSBL, nTBL, nBBL};
 
 //Standing Positions
@@ -123,7 +125,8 @@ bool paused = false;
 
 const int sitpos[12] = {nSFL, nTFL, nBFL, nSBR, nTBR, nBBR, nSFR, nTFR, nBFR, nSBL, nTBL, nBBL};
 const int standpos[12] = {sSFL, sTFL, sBFL, sSBR, sTBR, sBBR, sSFR, sTFR, sBFR, sSBL, sTBL, sBBL};
-const int slideright[12] = {232,90,90,158,109,72,97,191,143,0,95,85};
+const int slideright2[12] = {175,90,90,158,109,72,97,191,143,0,95,85};
+const int slideright[12] = {nSFL+20, nTFL-35, nBFL+70, nSBR-2, nTBR-31, nBBR+42, nSFR+2, nTFR+31, nBFR-42, nSBL-15, nTBL+35, nBBL-70};
 
 char command[10];
 int idx = 0;
@@ -134,7 +137,9 @@ void checkIR();
 void gyrosetup();
 void gyroread();
 void calibrateGyro();
-
+void computeIK(int legID,float x, float y, float z, float &theta1, float &theta2, float &theta3);
+void moveLegToPosition(int legID, float x, float y, float z);
+void setStandingPose();
 
 void setup() {
   Serial.begin(9600);
@@ -339,6 +344,9 @@ void checkIR(){
         }
         break;
       case FB9:
+        if (controlmode == 0){
+          setStandingPose();
+        } else
         if (controlmode == 1){
           selectedServo = BFR;
           printf("Selected Servo: %d\n", selectedServo);
@@ -537,51 +545,95 @@ void calibrateGyro(){
 
 
 // Globale Variablen für die aktuellen Servo-Winkel
-float currentTheta1[4] = {0, 0, 0, 0};  
-float currentTheta2[4] = {0, 0, 0, 0};  
-float currentTheta3[4] = {0, 0, 0, 0};  
-/*
+
+  
+
 // Funktion zur Berechnung der inversen Kinematik für ein Bein in 3D
-void computeIK(float x, float y, float z, float &theta1, float &theta2, float &theta3) {
-    theta1 = atan2(y, x) * 180.0 / M_PI;  // Hüftrotation (links/rechts)
+void computeIK(int legID, float x, float y, float z, float &theta1, float &theta2, float &theta3) {
+  if (legID ==0 || legID == 2) {
+    x = -x;  // Spiegelung der hinteren Beine
+  }
+  if (legID == 0 || legID == 3) {  //Linke Beine 
+      theta1 = atan2(y, z) * 180.0 / M_PI;
+  } else {  // Rechte Beine
+      theta1 = -atan2(y, z) * 180.0 / M_PI;
+  }
 
-    float d = sqrt(x*x + z*z);  // Abstand von Hüfte zum Fuß in 2D
+  float d = sqrt(x*x + z*z);  // Abstand von Hüfte zum Fuß in 2D
 
-    float cosTheta3 = (L1*L1 + L2*L2 - d*d) / (2 * L1 * L2);
-    theta3 = acos(cosTheta3) * 180.0 / M_PI;  // Kniewinkel in Grad
+  float cosTheta3 = (L1*L1 + L2*L2 - d*d) / (2 * L1 * L2);
+  theta3 = acos(cosTheta3) * 180.0 / M_PI;  // Kniewinkel in Grad
 
-    float alpha = atan2(z, x);  // Basiswinkel von Fuß zu Hüfte
-    float beta = acos((L1*L1 + d*d - L2*L2) / (2 * L1 * d));
-    theta2 = (alpha + beta) * 180.0 / M_PI;  // Hüftwinkel in Grad
+  float alpha = atan2(x, z);
+  float beta = acos((L1*L1 + d*d - L2*L2) / (2 * L1 * d));
+  theta2 = 90-((alpha+beta) * 180.0 / M_PI);  // Hüftwinkel in Grad
 }
+
+// Servo-Mapping (Pin-Nummern überspringen 6)
+int servoMap[12] = {0, 1, 2, 3, 4, 5, 7, 8, 9, 10, 11, 12};
 
 // Funktion zum Bewegen eines Beins mit Differenz-Winkel
 void moveLegToPosition(int legID, float x, float y, float z) {
-    float theta1, theta2, theta3;
-    
-    computeIK(x, y, z, theta1, theta2, theta3);
+  float theta1, theta2, theta3;
+  int nextPos[12] = {cSFL, cTFL, cBFL, cSBR, cTBR, cBBR, cSFR, cTFR, cBFR, cSBL, cTBL, cBBL};
+  int currentTheta1[4] = {cSFL, cSBR, cSFR, cSBL};  
+  int currentTheta2[4] = {cTFL, cTBR, cTFR, cTBL};  
+  int currentTheta3[4] = {cBFL, cBBR, cBFR, cBBL};  
 
-    // Differenz zum aktuellen Winkel berechnen
-    float deltaTheta1 = theta1 - currentTheta1[legID];
-    float deltaTheta2 = theta2 - currentTheta2[legID];
-    float deltaTheta3 = theta3 - currentTheta3[legID];
+  computeIK(legID, x, y, z, theta1, theta2, theta3);
+  // Winkelvorzeichen je nach bein anpassen
+  if (legID == 0 || legID == 1){
+    theta2 = -theta2;
+  }
+  if (legID == 2 || legID == 3){
+    theta3 = -theta3;
+  }
+  if (legID == 1 || legID == 3){
+    theta1 = -theta1;
+  }
+  // Differenz zum aktuellen Winkel berechnen
+  int deltaTheta1 = round(theta1) - currentTheta1[legID];
+  int deltaTheta2 = round(theta2) - currentTheta2[legID];
+  int deltaTheta3 = round(theta3) - currentTheta3[legID];
+  
+  Serial.print("currentTheta1: "); Serial.println(currentTheta1[legID]);
+  Serial.print("currentTheta2: "); Serial.println(currentTheta2[legID]);
+  Serial.print("currentTheta3: "); Serial.println(currentTheta3[legID]);
+  Serial.print("Theta1: "); Serial.println(theta1);
+  Serial.print("Theta2: "); Serial.println(theta2);
+  Serial.print("Theta3: "); Serial.println(theta3);
+  Serial.print("Delta Theta1: "); Serial.println(deltaTheta1);
+  Serial.print("Delta Theta2: "); Serial.println(deltaTheta2);
+  Serial.print("Delta Theta3: "); Serial.println(deltaTheta3);
+  // Servos um die Differenz bewegen
+  nextPos[legID * 3] = currentTheta1[legID] + deltaTheta1;
+  nextPos[legID * 3 + 1] = currentTheta2[legID] + deltaTheta2;
+  nextPos[legID * 3 + 2] = currentTheta3[legID] + deltaTheta3;
 
-    // Servo um die Differenz bewegen
-    moveServo(legID * 3 + 1, currentTheta1[legID] + deltaTheta1);
-    moveServo(legID * 3 + 2, currentTheta2[legID] + deltaTheta2);
-    moveServo(legID * 3 + 3, currentTheta3[legID] + deltaTheta3);
-
-    // Neue Winkelwerte speichern
-    currentTheta1[legID] += deltaTheta1;
-    currentTheta2[legID] += deltaTheta2;
-    currentTheta3[legID] += deltaTheta3;
+  Serial.print("Next Positions: [");
+  for (int i = 0; i < 12; i++) {
+    Serial.print(nextPos[i]);
+    if (i < 11) {
+      Serial.print(", ");
+    }
+  }
+  Serial.println("]");
+  // setServo(servoMap[legID * 3], currentTheta1[legID] + deltaTheta1);
+  // setServo(servoMap[legID * 3 + 1], currentTheta2[legID] + deltaTheta2);
+  // setServo(servoMap[legID * 3 + 2], currentTheta3[legID] + deltaTheta3);
+  GoTo(nextPos);
+  // Neue Winkelwerte speichern --> muss nochmal extra in currentTheta gespeichert werden
+  // currentTheta1[legID] += deltaTheta1;
+  // currentTheta2[legID] += deltaTheta2;
+  // currentTheta3[legID] += deltaTheta3;
 }
 
 // Funktion zum Einstellen der Standard-Standposition für alle 4 Beine
 void setStandingPose() {
-    moveLegToPosition(0, X_OFFSET, Y_OFFSET, Z_STAND);  // Linkes Vorderbein
-    moveLegToPosition(1, X_OFFSET, -Y_OFFSET, Z_STAND); // Rechtes Vorderbein
-    moveLegToPosition(2, -X_OFFSET, Y_OFFSET, Z_STAND); // Linkes Hinterbein
-    moveLegToPosition(3, -X_OFFSET, -Y_OFFSET, Z_STAND); // Rechtes Hinterbein
+  moveLegToPosition(0, X_OFFSET, Y_OFFSET, Z_STAND);  // Links vorne (normal)
+  moveLegToPosition(1, -X_OFFSET, Y_OFFSET, Z_STAND); // Rechts hinten (invertiert)
+  moveLegToPosition(2, X_OFFSET, Y_OFFSET, Z_STAND); // Rechts vorne (normal)
+  moveLegToPosition(3, -X_OFFSET, Y_OFFSET, Z_STAND);  // Links hinten (invertiert)
 }
-    */
+
+    
