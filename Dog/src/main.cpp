@@ -53,8 +53,8 @@
 
 #define L1 8.4   // Oberschenkellänge (cm)
 #define L2 12.2  // Unterschenkellänge (cm)
-#define Z_STAND 15.0  // Ziel-Hüfthöhe für gebeugte Standhaltung
-#define X_OFFSET 2.0  // Füße leicht vor der Hüfte für Stabilität
+#define Z_STAND 12.5  // Ziel-Hüfthöhe für gebeugte Standhaltung
+#define X_OFFSET 1.5  // Füße leicht vor der Hüfte für Stabilität
 #define Y_OFFSET 2.0  // Abstand der Füße zur Mitte (seitlich)
 
 
@@ -73,10 +73,11 @@ Adafruit_MPU6050 mpu;
 //current positions
 int cSFL = 0, cTFL = 0, cBFL = 0, cSBR = 0, cTBR = 0, cBBR = 0, cSFR = 0, cTFR = 0, cBFR = 0, cSBL = 0, cTBL = 0, cBBL = 0;
 int* cPositions[13] = {&cSFL, &cTFL, &cBFL, &cSBR, &cTBR, &cBBR,nullptr, &cSFR, &cTFR, &cBFR, &cSBL, &cTBL, &cBBL};
+int nextPos[12] = {cSFL, cTFL, cBFL, cSBR, cTBR, cBBR, cSFR, cTFR, cBFR, cSBL, cTBL, cBBL};
 
 
 //neutral positions
-const int servoOffsets[13] = {146, 125, 20, 150, 140, 30, -1, 99, 160, 185, 30, 60, 155}; //Offset
+const int servoOffsets[13] = {146, 135, 10, 150, 135, 30, -1, 99, 165, 185, 30, 60, 162}; //Offset
 const int nSFL = 0;
 const int nTFL = 0;
 const int nBFL = 0;
@@ -119,9 +120,10 @@ uint8_t remoteMac[6] = {0x30, 0xC9, 0x22, 0xEC, 0xBE, 0xAC};
 String success;
 int testnumber = 3;
 
+//Other variables
 void waitforButton();
 bool paused = false;
-
+bool singleLeg = true;
 
 const int sitpos[12] = {nSFL, nTFL, nBFL, nSBR, nTBR, nBBR, nSFR, nTFR, nBFR, nSBL, nTBL, nBBL};
 const int standpos[12] = {sSFL, sTFL, sBFL, sSBR, sTBR, sBBR, sSFR, sTFR, sBFR, sSBL, sTBL, sBBL};
@@ -138,7 +140,8 @@ void gyrosetup();
 void gyroread();
 void calibrateGyro();
 void computeIK(int legID,float x, float y, float z, float &theta1, float &theta2, float &theta3);
-void moveLegToPosition(int legID, float x, float y, float z);
+void moveLegGeneralFunc(int legID, float x, float y, float z);
+void moveLeg(int legID, float x, float y, float z);
 void setStandingPose();
 
 void setup() {
@@ -332,11 +335,15 @@ void checkIR(){
         break;
       case FB8:
       if (controlmode == 0){
-        //Zum Testen einzelner Bewegungen
-        setServo(TFL, (cTFL-5));
-        setServo(TBR, (cTBR+5));
-        setServo(TFR, (cTFR-5));
-        setServo(TBL, (cTBL+5));
+        //Dieser Bereich Zum Testen einzelner Bewegungen
+        moveLeg(1,0,0,1);
+        delay(1000);
+        moveLeg(0,0,0,3);
+        delay(1000);
+        moveLeg(0,3,0,3);
+        delay(1000);
+        moveLeg(0,3,0,0);
+        
       } else
         if (controlmode == 1){
           selectedServo = TFR;
@@ -544,7 +551,7 @@ void calibrateGyro(){
 
 
 
-// Globale Variablen für die aktuellen Servo-Winkel
+
 
   
 
@@ -573,9 +580,13 @@ void computeIK(int legID, float x, float y, float z, float &theta1, float &theta
 int servoMap[12] = {0, 1, 2, 3, 4, 5, 7, 8, 9, 10, 11, 12};
 
 // Funktion zum Bewegen eines Beins mit Differenz-Winkel
-void moveLegToPosition(int legID, float x, float y, float z) {
+void moveLegGeneralFunc(int legID, float x, float y, float z) {
+  if (singleLeg){
+    for (int i = 0; i < 12; i++) {
+      nextPos[i] = *cPositions[servoMap[i]];
+    }
+  }
   float theta1, theta2, theta3;
-  int nextPos[12] = {cSFL, cTFL, cBFL, cSBR, cTBR, cBBR, cSFR, cTFR, cBFR, cSBL, cTBL, cBBL};
   int currentTheta1[4] = {cSFL, cSBR, cSFR, cSBL};  
   int currentTheta2[4] = {cTFL, cTBR, cTFR, cTBL};  
   int currentTheta3[4] = {cBFL, cBBR, cBFR, cBBL};  
@@ -596,20 +607,58 @@ void moveLegToPosition(int legID, float x, float y, float z) {
   int deltaTheta2 = round(theta2) - currentTheta2[legID];
   int deltaTheta3 = round(theta3) - currentTheta3[legID];
   
-  Serial.print("currentTheta1: "); Serial.println(currentTheta1[legID]);
-  Serial.print("currentTheta2: "); Serial.println(currentTheta2[legID]);
-  Serial.print("currentTheta3: "); Serial.println(currentTheta3[legID]);
-  Serial.print("Theta1: "); Serial.println(theta1);
-  Serial.print("Theta2: "); Serial.println(theta2);
-  Serial.print("Theta3: "); Serial.println(theta3);
-  Serial.print("Delta Theta1: "); Serial.println(deltaTheta1);
-  Serial.print("Delta Theta2: "); Serial.println(deltaTheta2);
-  Serial.print("Delta Theta3: "); Serial.println(deltaTheta3);
+  // Serial.print("currentTheta1: "); Serial.println(currentTheta1[legID]);
+  // Serial.print("currentTheta2: "); Serial.println(currentTheta2[legID]);
+  // Serial.print("currentTheta3: "); Serial.println(currentTheta3[legID]);
+  // Serial.print("Theta1: "); Serial.println(theta1);
+  // Serial.print("Theta2: "); Serial.println(theta2);
+  // Serial.print("Theta3: "); Serial.println(theta3);
+  // Serial.print("Delta Theta1: "); Serial.println(deltaTheta1);
+  // Serial.print("Delta Theta2: "); Serial.println(deltaTheta2);
+  // Serial.print("Delta Theta3: "); Serial.println(deltaTheta3);
   // Servos um die Differenz bewegen
   nextPos[legID * 3] = currentTheta1[legID] + deltaTheta1;
   nextPos[legID * 3 + 1] = currentTheta2[legID] + deltaTheta2;
   nextPos[legID * 3 + 2] = currentTheta3[legID] + deltaTheta3;
 
+  if (singleLeg){
+    setServo(servoMap[legID * 3], currentTheta1[legID] + deltaTheta1);
+    setServo(servoMap[legID * 3 + 1], currentTheta2[legID] + deltaTheta2);
+    setServo(servoMap[legID * 3 + 2], currentTheta3[legID] + deltaTheta3);
+  }
+    // Neue Winkelwerte speichern --> muss nochmal extra in currentTheta gespeichert werden
+    // currentTheta1[legID] += deltaTheta1;
+    // currentTheta2[legID] += deltaTheta2;
+    // currentTheta3[legID] += deltaTheta3;
+
+}
+//TODO: Bein Links vorne anpassen, Beine hinten x anpassen 
+void moveLeg(int legID, float x, float y, float z) {
+  // Adjust the input coordinates by subtracting the offsets
+  float adjustedX;
+  if(legID == 1 || legID == 3){
+    adjustedX = X_OFFSET - x;
+  }else{
+  adjustedX = x + X_OFFSET;
+  }
+  float adjustedY = y + Y_OFFSET;
+  float adjustedZ = Z_STAND - z;
+
+  // Call moveLegGeneralFunc with the adjusted coordinates
+  moveLegGeneralFunc(legID, adjustedX, adjustedY, adjustedZ);
+}
+// Funktion zum Einstellen der Standard-Standposition für alle 4 Beine
+void setStandingPose() {
+  singleLeg = false;
+  for (int i = 0; i < 12; i++) {
+    nextPos[i] = *cPositions[servoMap[i]];
+}
+  moveLegGeneralFunc(0, X_OFFSET, Y_OFFSET, Z_STAND);  // Links vorne (normal)
+  moveLegGeneralFunc(1, -X_OFFSET, Y_OFFSET, Z_STAND); // Rechts hinten (invertiert)
+  moveLegGeneralFunc(2, X_OFFSET, Y_OFFSET, Z_STAND); // Rechts vorne (normal)
+  moveLegGeneralFunc(3, -X_OFFSET, Y_OFFSET, Z_STAND);  // Links hinten (invertiert)
+  GoTo(nextPos);
+  singleLeg = true;
   Serial.print("Next Positions: [");
   for (int i = 0; i < 12; i++) {
     Serial.print(nextPos[i]);
@@ -618,22 +667,6 @@ void moveLegToPosition(int legID, float x, float y, float z) {
     }
   }
   Serial.println("]");
-  // setServo(servoMap[legID * 3], currentTheta1[legID] + deltaTheta1);
-  // setServo(servoMap[legID * 3 + 1], currentTheta2[legID] + deltaTheta2);
-  // setServo(servoMap[legID * 3 + 2], currentTheta3[legID] + deltaTheta3);
-  GoTo(nextPos);
-  // Neue Winkelwerte speichern --> muss nochmal extra in currentTheta gespeichert werden
-  // currentTheta1[legID] += deltaTheta1;
-  // currentTheta2[legID] += deltaTheta2;
-  // currentTheta3[legID] += deltaTheta3;
-}
-
-// Funktion zum Einstellen der Standard-Standposition für alle 4 Beine
-void setStandingPose() {
-  moveLegToPosition(0, X_OFFSET, Y_OFFSET, Z_STAND);  // Links vorne (normal)
-  moveLegToPosition(1, -X_OFFSET, Y_OFFSET, Z_STAND); // Rechts hinten (invertiert)
-  moveLegToPosition(2, X_OFFSET, Y_OFFSET, Z_STAND); // Rechts vorne (normal)
-  moveLegToPosition(3, -X_OFFSET, Y_OFFSET, Z_STAND);  // Links hinten (invertiert)
 }
 
     
