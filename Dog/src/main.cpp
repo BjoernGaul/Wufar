@@ -12,20 +12,25 @@
 #include <Adafruit_Sensor.h>
 #include <Adafruit_MPU6050.h>
 #include "functions.h"
+#include <LoRa.h>
 
 //Pin of Servos
-#define SFL 0
-#define TFL 1
-#define BFL 2
-#define SBR 3
-#define TBR 4
-#define BBR 5
-#define SFR 7
-#define TFR 8
-#define BFR 9
-#define SBL 10
-#define TBL 11
-#define BBL 12
+#define FLS 0
+#define FLT 1
+#define FLB 2
+#define BRS 3
+#define BRT 4
+#define BRB 5
+#define FRS 7
+#define FRT 8
+#define FRB 9
+#define BLS 10
+#define BLT 11
+#define BLB 12
+#define FL 0
+#define BR 1
+#define FR 2
+#define BL 3
 
 //Hex-Adressen für die IR Fernbedienung
 #define FBPOWER 0xFFA25D
@@ -54,9 +59,33 @@
 #define L1 8.4   // Oberschenkellänge (cm)
 #define L2 12.2  // Unterschenkellänge (cm)
 #define Z_STAND 12.5  // Ziel-Hüfthöhe für gebeugte Standhaltung
-#define X_OFFSET 1.5  // Füße leicht vor der Hüfte für Stabilität
+#define X_OFFSET 2.0  // Füße leicht vor der Hüfte für Stabilität
 #define Y_OFFSET 2.0  // Abstand der Füße zur Mitte (seitlich)
 
+//LoRa
+#define DIO0 D3
+#define NSS D9
+#define frequency 433E6
+int LoRaType = 0; //0 = nichts, 1 = ein Wert, 2 = array mit 2 Werten
+int LoRaValue = 0;
+int* LoRaArray[2] = {0,0};
+const uint8_t sitL = 0; //Array haben nur 1 Element
+const uint8_t standL = 1;
+const uint8_t crab = 2;
+const uint8_t LoFLS = 10;//Array haben 2 Elemente: Was und Wert
+const uint8_t LoFLT = 11;
+const uint8_t LoFLB = 12;
+const uint8_t LoFRS = 20;
+const uint8_t LoFRT = 21;
+const uint8_t LoFRB = 22;
+const uint8_t LoBRS = 30;
+const uint8_t LoBRT = 31;
+const uint8_t LoBRB = 32;
+const uint8_t LoBLS = 40;
+const uint8_t LoBLT = 41;
+const uint8_t LoBLB = 42;
+const uint8_t isStanding = 69;
+const uint8_t reset = 255;
 
 const uint16_t RECV_PIN = 4;
 //Variablen für Fernbedienung
@@ -68,44 +97,42 @@ IRrecv irrecv(RECV_PIN);
 decode_results results;
 Adafruit_MPU6050 mpu;
 
-
-
 //current positions
-int cSFL = 0, cTFL = 0, cBFL = 0, cSBR = 0, cTBR = 0, cBBR = 0, cSFR = 0, cTFR = 0, cBFR = 0, cSBL = 0, cTBL = 0, cBBL = 0;
-int* cPositions[13] = {&cSFL, &cTFL, &cBFL, &cSBR, &cTBR, &cBBR,nullptr, &cSFR, &cTFR, &cBFR, &cSBL, &cTBL, &cBBL};
-int nextPos[12] = {cSFL, cTFL, cBFL, cSBR, cTBR, cBBR, cSFR, cTFR, cBFR, cSBL, cTBL, cBBL};
+int cFLS = 0, cFLT = 0, cFLB = 0, cBRS = 0, cBRT = 0, cBRB = 0, cFRS = 0, cFRT = 0, cFRB = 0, cBLS = 0, cBLT = 0, cBLB = 0;
+int* cPositions[13] = {&cFLS, &cFLT, &cFLB, &cBRS, &cBRT, &cBRB,nullptr, &cFRS, &cFRT, &cFRB, &cBLS, &cBLT, &cBLB};
+int nextPos[12] = {cFLS, cFLT, cFLB, cBRS, cBRT, cBRB, cFRS, cFRT, cFRB, cBLS, cBLT, cBLB};
 
 
 //neutral positions
-const int servoOffsets[13] = {146, 135, 10, 150, 135, 30, -1, 99, 165, 185, 30, 60, 162}; //Offset
-const int nSFL = 0;
-const int nTFL = 0;
-const int nBFL = 0;
-const int nSBR = 0;
-const int nTBR = 0;
-const int nBBR = 0;
-const int nSFR = 0;
-const int nTFR = 0;
-const int nBFR = 0;
-const int nSBL = 0;
-const int nTBL = 0;
-const int nBBL = 0;
-const int nPositions[13] = {nSFL, nTFL, nBFL, nSBR, nTBR, nBBR,-1, nSFR, nTFR, nBFR, nSBL, nTBL, nBBL};
+const int servoOffsets[13] = {158, 135, 10, 150, 135, 30, -1, 99, 165, 185, 30, 60, 162}; //Offset
+const int nFLS = 0;
+const int nFLT = 0;
+const int nFLB = 0;
+const int nBRS = 0;
+const int nBRT = 0;
+const int nBRB = 0;
+const int nFRS = 0;
+const int nFRT = 0;
+const int nFRB = 0;
+const int nBLS = 0;
+const int nBLT = 0;
+const int nBLB = 0;
+const int nPositions[13] = {nFLS, nFLT, nFLB, nBRS, nBRT, nBRB,-1, nFRS, nFRT, nFRB, nBLS, nBLT, nBLB};
 
 //Standing Positions
-const int sSFL = nSFL;
-const int sTFL = nTFL-30;
-const int sBFL = nBFL+60;
-const int sSBR = nSBR;
-const int sTBR = nTBR-30;
-const int sBBR = nBBR+60;
-const int sSFR = nSFR;
-const int sTFR = nTFR+30;
-const int sBFR = nBFR-60;
-const int sSBL = nSBL;
-const int sTBL = nTBL+30;
-const int sBBL = nBBL-60;
-const int sPositions[13] = {sSFL, sTFL, sBFL, sSBR, sTBR, sBBR,-1, sSFR, sTFR, sBFR, sSBL, sTBL, sBBL};
+const int sFLS = nFLS;
+const int sFLT = nFLT-30;
+const int sFLB = nFLB+60;
+const int sBRS = nBRS;
+const int sBRT = nBRT-30;
+const int sBRB = nBRB+60;
+const int sFRS = nFRS;
+const int sFRT = nFRT+30;
+const int sFRB = nFRB-60;
+const int sBLS = nBLS;
+const int sBLT = nBLT+30;
+const int sBLB = nBLB-60;
+const int sPositions[13] = {sFLS, sFLT, sFLB, sBRS, sBRT, sBRB,-1, sFRS, sFRT, sFRB, sBLS, sBLT, sBLB};
 
 //Bools for postions
 bool sitting = false;
@@ -125,10 +152,10 @@ void waitforButton();
 bool paused = false;
 bool singleLeg = true;
 
-const int sitpos[12] = {nSFL, nTFL, nBFL, nSBR, nTBR, nBBR, nSFR, nTFR, nBFR, nSBL, nTBL, nBBL};
-const int standpos[12] = {sSFL, sTFL, sBFL, sSBR, sTBR, sBBR, sSFR, sTFR, sBFR, sSBL, sTBL, sBBL};
+const int sitpos[12] = {nFLS, nFLT, nFLB, nBRS, nBRT, nBRB, nFRS, nFRT, nFRB, nBLS, nBLT, nBLB};
+const int standpos[12] = {sFLS, sFLT, sFLB, sBRS, sBRT, sBRB, sFRS, sFRT, sFRB, sBLS, sBLT, sBLB};
 const int slideright2[12] = {175,90,90,158,109,72,97,191,143,0,95,85};
-const int slideright[12] = {nSFL+20, nTFL-35, nBFL+70, nSBR-2, nTBR-31, nBBR+42, nSFR+2, nTFR+31, nBFR-42, nSBL-15, nTBL+35, nBBL-70};
+const int slideright[12] = {nFLS+20, nFLT-35, nFLB+70, nBRS-2, nBRT-31, nBRB+42, nFRS+2, nFRT+31, nFRB-42, nBLS-15, nBLT+35, nBLB-70};
 
 char command[10];
 int idx = 0;
@@ -143,15 +170,36 @@ void computeIK(int legID,float x, float y, float z, float &theta1, float &theta2
 void moveLegGeneralFunc(int legID, float x, float y, float z);
 void moveLeg(int legID, float x, float y, float z);
 void setStandingPose();
+void standneutral();
+
+//LoRa functions
+void LoRa_rxMode();
+void LoRa_txMode();
+void LoRa_sendMessage(String message);
+void onReceive(int packetSize);
+void onTxDone();
+int* stringToIntArray(String str);
 
 void setup() {
   Serial.begin(9600);
   servoDriver_module.begin();
-  servoDriver_module.setPWMFreq(50);    //Arbeitsfrequenz
+  servoDriver_module.setPWMFreq(50);    //ArbeiFRTSequenz
   home();
   irrecv.enableIRIn(); //Infrarotfernbedienung
   Serial.println("IR enabled");
-  readMacAdress();
+  //LoRa Setup
+  delay(1000);
+  Serial.println("LoRa Start");
+  LoRa.setPins( NSS , -1 , DIO0 );
+  if (!LoRa.begin(frequency)) {
+    Serial.println("LoRa init failed. Check your connections.");
+    while (true);    
+  }
+  LoRa.onReceive(onReceive);
+  LoRa.onTxDone(onTxDone);
+  LoRa_rxMode();
+  Serial.println("LoRa init succeeded.");
+  /*readMacAdress();
   WiFi.mode(WIFI_STA);
   if (esp_now_init() != ESP_OK) {
     Serial.println("Error initializing ESP-NOW");
@@ -170,7 +218,7 @@ void setup() {
     return;
   }else{
     Serial.println("Peer added");
-  }
+  }*/
   //gyrosetup();
 }
 
@@ -180,19 +228,30 @@ void loop() {
   if (walking){
     walk();
   }
-  // for (int angle = 0; angle <= 270; angle++) {
-  //     setServo(SFL, cSFL, angle);
-  //     delay(15);  // Delay for smooth movement
-  // }
-  // for (int angle = 270; angle >= 0; angle--) {
-  //     setServo(SFL, cSFL, angle);
-  //     delay(15);  // Delay for smooth movement
-  // }
+
+  //LoRa
+  if (LoRaType == 1){
+    switch (LoRaValue)
+    {
+    case 0:
+      GoTo(sitpos);
+      break;
+    case 1: 
+      GoTo(standpos);
+      break;
+    default:
+      break;
+    }
+  } else 
+  if (LoRaType == 2){
+    setServo(*LoRaArray[0], *LoRaArray[1]);
+  } else {}
+
   if (Serial.available())
   {
     char c = Serial.read();
     if (idx == 10)
-    {                 //Wenn 20 Zeichen in command sind, wird der buffer gelöscht
+    {                 //Wenn 10 Zeichen in command sind, wird der buffer gelöscht
       idx = 0;
       for (int i = 0; i < 10; i++)
       {
@@ -202,7 +261,7 @@ void loop() {
     }
     else if (c == '\n') //Enter
     { 
-      setServo(BFL, atoi(command));
+      setServo(FLB, atoi(command));
       idx = 0;
       for (int i = 0; i < 10; i++)
       {
@@ -221,8 +280,6 @@ void loop() {
 }
 
 
-
-
 void waitforButton(){
   irrecv.resume();
   paused = true;
@@ -231,15 +288,13 @@ void waitforButton(){
 }
 
 
-
-//Steht auf in 3 Schritten
-
 void readMacAdress(){
   uint8_t mac[6];
   esp_read_mac(mac, ESP_MAC_WIFI_STA);
   Serial.printf("MAC Address: %02x:%02x:%02x:%02x:%02x:%02x\n", mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
 }
 
+//Alte Funktion WiFiNow
 void onDataReceive(const uint8_t * mac, const uint8_t * data, int len) {
   int receivedNumber;
   Serial.println("Received data");
@@ -260,24 +315,24 @@ void checkIR(){
     Serial.println(results.value, HEX);
     switch (results.value){
       case FBVOLUP:
-        Serial.printf("SFL = %d\n",cSFL);
-        Serial.printf("TFL = %d\n",cTFL);
-        Serial.printf("BFL = %d\n",cBFL);
-        Serial.printf("SBR = %d\n",cSBR);
-        Serial.printf("TBR = %d\n",cTBR);
-        Serial.printf("BBR = %d\n",cBBR);
-        Serial.printf("SFR = %d\n",cSFR);
-        Serial.printf("TFR = %d\n",cTFR);
-        Serial.printf("BFR = %d\n",cBFR);
-        Serial.printf("SBL = %d\n",cSBL);
-        Serial.printf("TBL = %d\n",cTBL);
-        Serial.printf("BBL = %d\n",cBBL);
+        Serial.printf("FLS = %d\n",cFLS);
+        Serial.printf("FLT = %d\n",cFLT);
+        Serial.printf("FLB = %d\n",cFLB);
+        Serial.printf("BRS = %d\n",cBRS);
+        Serial.printf("BRT = %d\n",cBRT);
+        Serial.printf("BRB = %d\n",cBRB);
+        Serial.printf("FRS = %d\n",cFRS);
+        Serial.printf("FRT = %d\n",cFRT);
+        Serial.printf("FRB = %d\n",cFRB);
+        Serial.printf("BLS = %d\n",cBLS);
+        Serial.printf("BLT = %d\n",cBLT);
+        Serial.printf("BLB = %d\n",cBLB);
         break;
       case FB1:
         if(controlmode == 0){
           sidestepR();
           } else if(controlmode == 1){
-            selectedServo = SFL;
+            selectedServo = FLS;
             printf("Selected Servo: %d\n", selectedServo);
           }
         break;
@@ -285,7 +340,7 @@ void checkIR(){
         if(controlmode == 0){
           stand();
         } else if(controlmode == 1){
-          selectedServo = TFL;
+          selectedServo = FLT;
           printf("Selected Servo: %d\n", selectedServo);
         }
         break;
@@ -295,7 +350,7 @@ void checkIR(){
           sitting = false;
           standing = true;
         } else if (controlmode == 1){
-          selectedServo = BFL;
+          selectedServo = FLB;
           printf("Selected Servo: %d\n", selectedServo);
         }
         break;
@@ -303,7 +358,7 @@ void checkIR(){
         if(controlmode == 0){
           walk();
         } else if (controlmode == 1){
-          selectedServo = SBR;
+          selectedServo = BRS;
           printf("Selected Servo: %d\n", selectedServo);
         }  
         break;
@@ -313,7 +368,7 @@ void checkIR(){
           sitting = true;
           standing = false;
         } else if (controlmode == 1){
-          selectedServo = TBR;
+          selectedServo = BRT;
           printf("Selected Servo: %d\n", selectedServo);
         }
         break;
@@ -321,7 +376,7 @@ void checkIR(){
       if(controlmode == 0){
         walking = !walking;
       } else if (controlmode ==1){
-          selectedServo = BBR;
+          selectedServo = BRB;
           printf("Selected Servo: %d\n", selectedServo);
         }
         break;
@@ -329,24 +384,56 @@ void checkIR(){
         if (controlmode == 0){
           walkback();
         } else if (controlmode == 1){
-          selectedServo = SFR;
+          selectedServo = FRS;
           printf("Selected Servo: %d\n", selectedServo);
         }
         break;
       case FB8:
       if (controlmode == 0){
         //Dieser Bereich Zum Testen einzelner Bewegungen
-        moveLeg(1,0,0,1);
+        /*moveLeg(BR,-1,0,3);
+        delay(100);
+        moveLeg(FL,0,0,4);
+        delay(100);
+        moveLeg(FL,6,0,4);
+        delay(100);
+        moveLeg(FL,6,0,1);
+        moveLeg(BR,6,0,1);
+        delay(100);
+        moveLeg(BR,6,0,0);
+        delay(100);
+        standneutral();
+        delay(100);
+        moveLeg(BL,-1,0,3);
+        delay(100);
+        moveLeg(FR,0,0,4);
+        delay(100);
+        moveLeg(FR,6,0,4);
+        delay(100);
+        moveLeg(FR,6,0,1);
+        moveLeg(BL,6,0,1);
+        delay(100);
+        moveLeg(BL,6,0,0);
+        delay(100);
+        standneutral();*/
+        moveLeg(FL,0,3,4);
         delay(1000);
-        moveLeg(0,0,0,3);
+        moveLeg(FL,0,0,0);
         delay(1000);
-        moveLeg(0,3,0,3);
+        moveLeg(BR,0,3,4);
         delay(1000);
-        moveLeg(0,3,0,0);
-        
+        moveLeg(BR,0,0,0);
+        delay(1000);
+        moveLeg(FR,0,3,4);
+        delay(1000);
+        moveLeg(FR,0,0,0);
+        delay(1000);
+        moveLeg(BL,0,3,4);
+        delay(1000);
+        moveLeg(BL,0,0,0);
       } else
         if (controlmode == 1){
-          selectedServo = TFR;
+          selectedServo = FRT;
           printf("Selected Servo: %d\n", selectedServo);
         }
         break;
@@ -355,25 +442,25 @@ void checkIR(){
           setStandingPose();
         } else
         if (controlmode == 1){
-          selectedServo = BFR;
+          selectedServo = FRB;
           printf("Selected Servo: %d\n", selectedServo);
         }
         break;
       case FB0:
         if (controlmode == 1){
-          selectedServo = SBL;
+          selectedServo = BLS;
           printf("Selected Servo: %d\n", selectedServo);
         }
         break;
       case FBEQ:
         if (controlmode == 1){
-          selectedServo = TBL;
+          selectedServo = BLT;
           printf("Selected Servo: %d\n", selectedServo);
         }
         break;
       case FBREPT:
         if (controlmode == 1){
-          selectedServo = BBL;
+          selectedServo = BLB;
           printf("Selected Servo: %d\n", selectedServo);
         }
         break;
@@ -557,9 +644,10 @@ void calibrateGyro(){
 
 // Funktion zur Berechnung der inversen Kinematik für ein Bein in 3D
 void computeIK(int legID, float x, float y, float z, float &theta1, float &theta2, float &theta3) {
-  if (legID ==0 || legID == 2) {
+  /*if (legID ==0 || legID == 2) {
     x = -x;  // Spiegelung der hinteren Beine
-  }
+  }*/
+  x =-x;
   if (legID == 0 || legID == 3) {  //Linke Beine 
       theta1 = atan2(y, z) * 180.0 / M_PI;
   } else {  // Rechte Beine
@@ -587,9 +675,9 @@ void moveLegGeneralFunc(int legID, float x, float y, float z) {
     }
   }
   float theta1, theta2, theta3;
-  int currentTheta1[4] = {cSFL, cSBR, cSFR, cSBL};  
-  int currentTheta2[4] = {cTFL, cTBR, cTFR, cTBL};  
-  int currentTheta3[4] = {cBFL, cBBR, cBFR, cBBL};  
+  int currentTheta1[4] = {cFLS, cBRS, cFRS, cBLS};  
+  int currentTheta2[4] = {cFLT, cBRT, cFRT, cBLT};  
+  int currentTheta3[4] = {cFLB, cBRB, cFRB, cBLB};  
 
   computeIK(legID, x, y, z, theta1, theta2, theta3);
   // Winkelvorzeichen je nach bein anpassen
@@ -654,9 +742,9 @@ void setStandingPose() {
     nextPos[i] = *cPositions[servoMap[i]];
 }
   moveLegGeneralFunc(0, X_OFFSET, Y_OFFSET, Z_STAND);  // Links vorne (normal)
-  moveLegGeneralFunc(1, -X_OFFSET, Y_OFFSET, Z_STAND); // Rechts hinten (invertiert)
+  moveLegGeneralFunc(1, X_OFFSET, Y_OFFSET, Z_STAND); // Rechts hinten (invertiert)
   moveLegGeneralFunc(2, X_OFFSET, Y_OFFSET, Z_STAND); // Rechts vorne (normal)
-  moveLegGeneralFunc(3, -X_OFFSET, Y_OFFSET, Z_STAND);  // Links hinten (invertiert)
+  moveLegGeneralFunc(3, X_OFFSET, Y_OFFSET, Z_STAND);  // Links hinten (invertiert)
   GoTo(nextPos);
   singleLeg = true;
   Serial.print("Next Positions: [");
@@ -669,4 +757,115 @@ void setStandingPose() {
   Serial.println("]");
 }
 
-    
+void LoRa_rxMode(){
+  Serial.println("LoRa_rxMode");
+  LoRa.enableInvertIQ();                // active invert I and Q signals
+  LoRa.receive();                       // set receive mode
+}
+ 
+void LoRa_txMode(){
+  Serial.println("LoRa_txMode");
+  LoRa.idle();  
+  Serial.println("idle done");          // set standby mode;
+  LoRa.disableInvertIQ();              // normal mode
+  Serial.println("disableInvertIQ done");
+}
+ 
+void LoRa_sendMessage(String message) {
+  LoRa_txMode();                       // set tx mode
+  Serial.println("Begin message");
+  LoRa.beginPacket();                   // start packet
+  Serial.println("Begin packet done");
+  LoRa.print(message);                  // add payload
+  Serial.println("Print done");
+  LoRa.endPacket(false);                 // finish packet and send it
+  Serial.println("End packet done");
+}
+
+void onReceive(int packetSize) {
+  String message = "";
+ 
+  while (LoRa.available()) {
+    message += (char)LoRa.read();
+  }
+
+  Serial.print("Node Receive: ");
+  Serial.println(message);
+  if (sizeof(message) == 1){
+    LoRaValue = message.toInt();
+    LoRaType = 1;
+  } else if (sizeof(message) == 2){
+    int* LoRaArray = stringToIntArray(message);
+    switch (LoRaArray[0]){
+      case LoFLS:
+        LoRaArray[0] = FLS;
+        break;
+      case LoFLT:
+        LoRaArray[0] = FLT;
+        break;
+      case LoFLB:
+        LoRaArray[0] = FLB;
+        break;
+      case LoFRS:
+        LoRaArray[0] = FRS;
+        break;
+      case LoFRT:
+        LoRaArray[0] = FRT;
+        break;
+      case LoFRB:
+        LoRaArray[0] = FRB;
+        break;
+      case LoBRS:
+        LoRaArray[0] = BRS;
+        break;
+      case LoBRT:
+        LoRaArray[0] = BRT;
+        break;
+      case LoBRB:
+        LoRaArray[0] = BRB;
+        break;
+      case LoBLS:
+        LoRaArray[0] = BLS;
+        break;
+      case LoBLT:
+        LoRaArray[0] = BLT;
+        break;
+      case LoBLB:
+        LoRaArray[0] = BLB;
+        break;
+    }
+    LoRaType = 2;
+  } else {
+    LoRaType = 0;
+  }
+}
+ 
+void onTxDone() {
+  Serial.println("TxDone");
+  LoRa_rxMode();
+}
+
+int* stringToIntArray(String str)
+{
+  // Convert the string back to an integer array
+  int startIndex = 0;
+  int endIndex = str.indexOf(',');
+  int* intArray = new int[2];
+  int arrayIndex = 0;
+ 
+  while (endIndex != -1) {
+    intArray[arrayIndex++] = str.substring(startIndex, endIndex).toInt();
+    startIndex = endIndex + 2; // Move past the comma and space
+    endIndex = str.indexOf(',', startIndex);
+  }
+  intArray[arrayIndex] = str.substring(startIndex).toInt(); // Add the last number
+ 
+  return intArray;
+}
+
+void standneutral(){
+  moveLeg(FL,0,0,0);
+  moveLeg(BR,0,0,0);
+  moveLeg(FR,0,0,0);
+  moveLeg(BL,0,0,0);
+}

@@ -31,9 +31,9 @@ void setServoTB(int GoUp);                                             // Bewegt
 void setServoSlow(int motor, int angle, int stepsize); // Bewegt einen Servo langsam
 void moveServo(int selectedServo, int updown);                         // Bewegt einen einzelnen Servo in 5er schritten //updown: 1 = up, -1 = down                                             // Erstellt die Strings für die Positionen mithilfe der Variablen
 
-extern int cSFL, cTFL, cBFL, cSBR, cTBR, cBBR, cSFR, cTFR, cBFR, cSBL, cTBL, cBBL;
-extern const int nSFL, nTFL, nBFL, nSBR, nTBR, nBBR, nSFR, nTFR, nBFR, nSBL, nTBL, nBBL;
-extern const int sSFL, sTFL, sBFL, sSBR, sTBR, sBBR, sSFR, sTFR, sBFR, sSBL, sTBL, sBBL;
+extern int cFLS, cFLT, cFLB, cBRS, cBRT, cBRB, cFRS, cFRT, cFRB, cBLS, cBLT, cBLB;
+extern const int nFLS, nFLT, nFLB, nBRS, nBRT, nBRB, nFRS, nFRT, nFRB, nBLS, nBLT, nBLB;
+extern const int sFLS, sFLT, sFLB, sBRS, sBRT, sBRB, sFRS, sFRT, sFRB, sBLS, sBLT, sBLB;
 extern const int servoOffsets[13];
 extern int* cPositions[13];
 extern const int nPositions[13];

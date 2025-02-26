@@ -14,9 +14,9 @@
 #include <Adafruit_MPU6050.h>
 
 extern Adafruit_PWMServoDriver servoDriver_module;
-/*extern int cSFL, cTFL, cBFL, cSBR, cTBR, cBBR, cSFR, cTFR, cBFR, cSBL, cTBL, cBBL;
-extern const int nSFL, nTFL, nBFL, nSBR, nTBR, nBBR, nSFR, nTFR, nBFR, nSBL, nTBL, nBBL;
-extern const int sSFL, sTFL, sBFL, sSBR, sTBR, sBBR, sSFR, sTFR, sBFR, sSBL, sTBL, sBBL;
+/*extern int cFLS, cFLT, cFLB, cBRS, cBRT, cBRB, cFRS, cFRT, cFRB, cBLS, cBLT, cBLB;
+extern const int nFLS, nFLT, nFLB, nBRS, nBRT, nBRB, nFRS, nFRT, nFRB, nBLS, nBLT, nBLB;
+extern const int sFLS, sFLT, sFLB, sBRS, sBRT, sBRB, sFRS, sFRT, sFRB, sBLS, sBLT, sBLB;
 extern int* cPositions[13];
 extern const int nPositions[13];
 extern const int sPositions[13];
@@ -31,18 +31,18 @@ extern bool standing;
 extern int selectedServo;*/
 
 
-#define SFL 0
-#define TFL 1
-#define BFL 2
-#define SBR 3
-#define TBR 4
-#define BBR 5
-#define SFR 7
-#define TFR 8
-#define BFR 9
-#define SBL 10
-#define TBL 11
-#define BBL 12
+#define FLS 0
+#define FLT 1
+#define FLB 2
+#define BRS 3
+#define BRT 4
+#define BRB 5
+#define FRS 7
+#define FRT 8
+#define FRB 9
+#define BLS 10
+#define BLT 11
+#define BLB 12
 #define SERVOMIN 125
 #define SERVOMAX 600
 
@@ -66,18 +66,18 @@ void setServo(int motor, int angle) {
 
 void home()
 {
-  setServo(SFL, nSFL);
-  setServo(SBR, nSBR);
-  setServo(SFR, nSFR);
-  setServo(SBL, nSBL);
-  setServo(TFL, nTFL);
-  setServo(TBR, nTBR);
-  setServo(TFR, nTFR);
-  setServo(TBL, nTBL);
-  setServo(BFL, nBFL);
-  setServo(BBR, nBBR);
-  setServo(BFR, nBFR);
-  setServo(BBL, nBBL);
+  setServo(FLS, nFLS);
+  setServo(BRS, nBRS);
+  setServo(FRS, nFRS);
+  setServo(BLS, nBLS);
+  setServo(FLT, nFLT);
+  setServo(BRT, nBRT);
+  setServo(FRT, nFRT);
+  setServo(BLT, nBLT);
+  setServo(FLB, nFLB);
+  setServo(BRB, nBRB);
+  setServo(FRB, nFRB);
+  setServo(BLB, nBLB);
   sitting = true;
   standing = false;
   return;
@@ -87,28 +87,28 @@ void stand()
 {
   if (sitting)
   {
-    setServo(SFL, sSFL); // Seiten ausrichten
-    setServo(SBR, sSBR);
-    setServo(SFR, sSFR);
-    setServo(SBL, sSBL);
-    setServo(TFL, cTFL - ((cTFL - sTFL) / 2)); // Top halb ausrichten
-    setServo(TBR, cTBR - ((cTBR - sTBR) / 2));
-    setServo(TFR, cTFR - ((cTFR - sTFR) / 2));
-    setServo(TBL, cTBL - ((cTBL - sTBL) / 2));
-    setServo(BFL, cBFL - ((cBFL - sBFL) / 3)); // Bottom halb ausrichten
-    setServo(BBR, cBBR - ((cBBR - sBBR) / 3));
-    setServo(BFR, cBFR - ((cBFR - sBFR) / 3));
-    setServo(BBL, cBBL - ((cBBL - sBBL) / 3));
+    setServo(FLS, sFLS); // Seiten ausrichten
+    setServo(BRS, sBRS);
+    setServo(FRS, sFRS);
+    setServo(BLS, sBLS);
+    setServo(FLT, cFLT - ((cFLT - sFLT) / 2)); // Top halb ausrichten
+    setServo(BRT, cBRT - ((cBRT - sBRT) / 2));
+    setServo(FRT, cFRT - ((cFRT - sFRT) / 2));
+    setServo(BLT, cBLT - ((cBLT - sBLT) / 2));
+    setServo(FLB, cFLB - ((cFLB - sFLB) / 3)); // Bottom halb ausrichten
+    setServo(BRB, cBRB - ((cBRB - sBRB) / 3));
+    setServo(FRB, cFRB - ((cFRB - sFRB) / 3));
+    setServo(BLB, cBLB - ((cBLB - sBLB) / 3));
     delay(300);
-    setServo(TFL, sTFL); // Top ausrichten
-    setServo(TBR, sTBR);
-    setServo(TFR, sTFR);
-    setServo(TBL, sTBL);
+    setServo(FLT, sFLT); // Top ausrichten
+    setServo(BRT, sBRT);
+    setServo(FRT, sFRT);
+    setServo(BLT, sBLT);
     delay(300);
-    setServo(BFL, sBFL); // Bottom ausrichten
-    setServo(BBR, sBBR);
-    setServo(BFR, sBFR);
-    setServo(BBL, sBBL);
+    setServo(FLB, sFLB); // Bottom ausrichten
+    setServo(BRB, sBRB);
+    setServo(FRB, sFRB);
+    setServo(BLB, sBLB);
   }
   sitting = false;
   standing = true;
@@ -124,186 +124,186 @@ void GoTo(const int targetPositions[12])
         allServosAtTarget = true;
 
         // Front Left
-        if (abs(cSFL - targetPositions[0]) < stepSize)
+        if (abs(cFLS - targetPositions[0]) < stepSize)
         {
-            setServo(SFL, targetPositions[0]);
+            setServo(FLS, targetPositions[0]);
         }
-        else if (cSFL < targetPositions[0])
+        else if (cFLS < targetPositions[0])
         {
-            setServo(SFL, cSFL + stepSize);
+            setServo(FLS, cFLS + stepSize);
             allServosAtTarget = false;
         }
-        else if (cSFL > targetPositions[0])
+        else if (cFLS > targetPositions[0])
         {
-            setServo(SFL, cSFL - stepSize);
-            allServosAtTarget = false;
-        }
-
-        if (abs(cTFL - targetPositions[1]) < stepSize)
-        {
-            setServo(TFL, targetPositions[1]);
-        }
-        else if (cTFL < targetPositions[1])
-        {
-            setServo(TFL, cTFL + stepSize);
-            allServosAtTarget = false;
-        }
-        else if (cTFL > targetPositions[1])
-        {
-            setServo(TFL, cTFL - stepSize);
+            setServo(FLS, cFLS - stepSize);
             allServosAtTarget = false;
         }
 
-        if (abs(cBFL - targetPositions[2]) < stepSize * 2)
+        if (abs(cFLT - targetPositions[1]) < stepSize)
         {
-            setServo(BFL, targetPositions[2]);
+            setServo(FLT, targetPositions[1]);
         }
-        else if (cBFL < targetPositions[2])
+        else if (cFLT < targetPositions[1])
         {
-            setServo(BFL, cBFL + stepSize * 2);
+            setServo(FLT, cFLT + stepSize);
             allServosAtTarget = false;
         }
-        else if (cBFL > targetPositions[2])
+        else if (cFLT > targetPositions[1])
         {
-            setServo(BFL, cBFL - stepSize * 2);
+            setServo(FLT, cFLT - stepSize);
+            allServosAtTarget = false;
+        }
+
+        if (abs(cFLB - targetPositions[2]) < stepSize * 2)
+        {
+            setServo(FLB, targetPositions[2]);
+        }
+        else if (cFLB < targetPositions[2])
+        {
+            setServo(FLB, cFLB + stepSize * 2);
+            allServosAtTarget = false;
+        }
+        else if (cFLB > targetPositions[2])
+        {
+            setServo(FLB, cFLB - stepSize * 2);
             allServosAtTarget = false;
         }
 
         // Back Right
-        if (abs(cSBR - targetPositions[3]) < stepSize)
+        if (abs(cBRS - targetPositions[3]) < stepSize)
         {
-            setServo(SBR, targetPositions[3]);
+            setServo(BRS, targetPositions[3]);
         }
-        else if (cSBR < targetPositions[3])
+        else if (cBRS < targetPositions[3])
         {
-            setServo(SBR, cSBR + stepSize);
+            setServo(BRS, cBRS + stepSize);
             allServosAtTarget = false;
         }
-        else if (cSBR > targetPositions[3])
+        else if (cBRS > targetPositions[3])
         {
-            setServo(SBR, cSBR - stepSize);
-            allServosAtTarget = false;
-        }
-
-        if (abs(cTBR - targetPositions[4]) < stepSize)
-        {
-            setServo(TBR, targetPositions[4]);
-        }
-        else if (cTBR < targetPositions[4])
-        {
-            setServo(TBR, cTBR + stepSize);
-            allServosAtTarget = false;
-        }
-        else if (cTBR > targetPositions[4])
-        {
-            setServo(TBR, cTBR - stepSize);
+            setServo(BRS, cBRS - stepSize);
             allServosAtTarget = false;
         }
 
-        if (abs(cBBR - targetPositions[5]) < stepSize * 2)
+        if (abs(cBRT - targetPositions[4]) < stepSize)
         {
-            setServo(BBR, targetPositions[5]);
+            setServo(BRT, targetPositions[4]);
         }
-        else if (cBBR < targetPositions[5])
+        else if (cBRT < targetPositions[4])
         {
-            setServo(BBR, cBBR + stepSize * 2);
+            setServo(BRT, cBRT + stepSize);
             allServosAtTarget = false;
         }
-        else if (cBBR > targetPositions[5])
+        else if (cBRT > targetPositions[4])
         {
-            setServo(BBR, cBBR - stepSize * 2);
+            setServo(BRT, cBRT - stepSize);
+            allServosAtTarget = false;
+        }
+
+        if (abs(cBRB - targetPositions[5]) < stepSize * 2)
+        {
+            setServo(BRB, targetPositions[5]);
+        }
+        else if (cBRB < targetPositions[5])
+        {
+            setServo(BRB, cBRB + stepSize * 2);
+            allServosAtTarget = false;
+        }
+        else if (cBRB > targetPositions[5])
+        {
+            setServo(BRB, cBRB - stepSize * 2);
             allServosAtTarget = false;
         }
 
         // Front Right
-        if (abs(cSFR - targetPositions[6]) < stepSize)
+        if (abs(cFRS - targetPositions[6]) < stepSize)
         {
-            setServo(SFR, targetPositions[6]);
+            setServo(FRS, targetPositions[6]);
         }
-        else if (cSFR < targetPositions[6])
+        else if (cFRS < targetPositions[6])
         {
-            setServo(SFR, cSFR + stepSize);
+            setServo(FRS, cFRS + stepSize);
             allServosAtTarget = false;
         }
-        else if (cSFR > targetPositions[6])
+        else if (cFRS > targetPositions[6])
         {
-            setServo(SFR, cSFR - stepSize);
-            allServosAtTarget = false;
-        }
-
-        if (abs(cTFR - targetPositions[7]) < stepSize)
-        {
-            setServo(TFR, targetPositions[7]);
-        }
-        else if (cTFR < targetPositions[7])
-        {
-            setServo(TFR, cTFR + stepSize);
-            allServosAtTarget = false;
-        }
-        else if (cTFR > targetPositions[7])
-        {
-            setServo(TFR, cTFR - stepSize);
+            setServo(FRS, cFRS - stepSize);
             allServosAtTarget = false;
         }
 
-        if (abs(cBFR - targetPositions[8]) < stepSize * 2)
+        if (abs(cFRT - targetPositions[7]) < stepSize)
         {
-            setServo(BFR, targetPositions[8]);
+            setServo(FRT, targetPositions[7]);
         }
-        else if (cBFR < targetPositions[8])
+        else if (cFRT < targetPositions[7])
         {
-            setServo(BFR, cBFR + stepSize * 2);
+            setServo(FRT, cFRT + stepSize);
             allServosAtTarget = false;
         }
-        else if (cBFR > targetPositions[8])
+        else if (cFRT > targetPositions[7])
         {
-            setServo(BFR, cBFR - stepSize * 2);
+            setServo(FRT, cFRT - stepSize);
+            allServosAtTarget = false;
+        }
+
+        if (abs(cFRB - targetPositions[8]) < stepSize * 2)
+        {
+            setServo(FRB, targetPositions[8]);
+        }
+        else if (cFRB < targetPositions[8])
+        {
+            setServo(FRB, cFRB + stepSize * 2);
+            allServosAtTarget = false;
+        }
+        else if (cFRB > targetPositions[8])
+        {
+            setServo(FRB, cFRB - stepSize * 2);
             allServosAtTarget = false;
         }
 
         // Back Left
-        if (abs(cSBL - targetPositions[9]) < stepSize)
+        if (abs(cBLS - targetPositions[9]) < stepSize)
         {
-            setServo(SBL, targetPositions[9]);
+            setServo(BLS, targetPositions[9]);
         }
-        else if (cSBL < targetPositions[9])
+        else if (cBLS < targetPositions[9])
         {
-            setServo(SBL, cSBL + stepSize);
+            setServo(BLS, cBLS + stepSize);
             allServosAtTarget = false;
         }
-        else if (cSBL > targetPositions[9])
+        else if (cBLS > targetPositions[9])
         {
-            setServo(SBL, cSBL - stepSize);
-            allServosAtTarget = false;
-        }
-
-        if (abs(cTBL - targetPositions[10]) < stepSize)
-        {
-            setServo(TBL, targetPositions[10]);
-        }
-        else if (cTBL < targetPositions[10])
-        {
-            setServo(TBL, cTBL + stepSize);
-            allServosAtTarget = false;
-        }
-        else if (cTBL > targetPositions[10])
-        {
-            setServo(TBL, cTBL - stepSize);
+            setServo(BLS, cBLS - stepSize);
             allServosAtTarget = false;
         }
 
-        if (abs(cBBL - targetPositions[11]) < stepSize * 2)
+        if (abs(cBLT - targetPositions[10]) < stepSize)
         {
-            setServo(BBL, targetPositions[11]);
+            setServo(BLT, targetPositions[10]);
         }
-        else if (cBBL < targetPositions[11])
+        else if (cBLT < targetPositions[10])
         {
-            setServo(BBL, cBBL + stepSize * 2);
+            setServo(BLT, cBLT + stepSize);
             allServosAtTarget = false;
         }
-        else if (cBBL > targetPositions[11])
+        else if (cBLT > targetPositions[10])
         {
-            setServo(BBL, cBBL - stepSize * 2);
+            setServo(BLT, cBLT - stepSize);
+            allServosAtTarget = false;
+        }
+
+        if (abs(cBLB - targetPositions[11]) < stepSize * 2)
+        {
+            setServo(BLB, targetPositions[11]);
+        }
+        else if (cBLB < targetPositions[11])
+        {
+            setServo(BLB, cBLB + stepSize * 2);
+            allServosAtTarget = false;
+        }
+        else if (cBLB > targetPositions[11])
+        {
+            setServo(BLB, cBLB - stepSize * 2);
             allServosAtTarget = false;
         }
 
@@ -335,28 +335,28 @@ void setServoSlow(int motor, int angle, int stepsize) {
 
 void setServoS(int GoUp)
 {
-    setServo(SFL, cSFL + GoUp);
-    setServo(SBR, cSBR - GoUp);
-    setServo(SFR, cSFR + GoUp);
-    setServo(SBL, cSBL + GoUp);
+    setServo(FLS, cFLS + GoUp);
+    setServo(BRS, cBRS - GoUp);
+    setServo(FRS, cFRS + GoUp);
+    setServo(BLS, cBLS + GoUp);
 }
 
 void setServoT(int GoUp)
 {
     // Rechts: hoch addieren, Links: hoch subtrahieren
-    setServo(TFL, cTFL - GoUp);
-    setServo(TBR, cTBR + GoUp);
-    setServo(TFR, cTFR + GoUp);
-    setServo(TBL, cTBL - GoUp);
+    setServo(FLT, cFLT - GoUp);
+    setServo(BRT, cBRT + GoUp);
+    setServo(FRT, cFRT + GoUp);
+    setServo(BLT, cBLT - GoUp);
 }
 
 void setServoB(int GoUp)
 {
     // Rechts: hoch subtrahieren, Links: hoch addieren
-    setServo(BFL, cBFL + GoUp);
-    setServo(BBR, cBBR + GoUp);
-    setServo(BFR, cBFR - GoUp);
-    setServo(BBL, cBBL - GoUp);
+    setServo(FLB, cFLB + GoUp);
+    setServo(BRB, cBRB + GoUp);
+    setServo(FRB, cFRB - GoUp);
+    setServo(BLB, cBLB - GoUp);
 }
 
 void setServoTB(int GoUp)
@@ -379,24 +379,24 @@ void sidestepR()
     if (standing)
     {
         // Linke Seite absenken
-        setServo(BFL, cBFL - 20);
-        setServo(BBL, cBBL + 20);
+        setServo(FLB, cFLB - 20);
+        setServo(BLB, cBLB + 20);
         delay(100);
         waitforButton();
         // Rechtes Bein Vorne bewegen
-        setServoSlow(BFR, cBFR + 20, 3);
-        setServoSlow(TFR, cTFR - 10, 3);
-        setServoSlow(SFR, cSFR - 20, 3);
+        setServoSlow(FRB, cFRB + 20, 3);
+        setServoSlow(FRT, cFRT - 10, 3);
+        setServoSlow(FRS, cFRS - 20, 3);
         delay(50);
-        setServoSlow(TFR, cTFR + 15, 3);
-        setServoSlow(BFR, cBFR - 30, 3);
+        setServoSlow(FRT, cFRT + 15, 3);
+        setServoSlow(FRB, cFRB - 30, 3);
         // Rechtes Bein Hinten bewegen
-        setServoSlow(BBR, cBBR - 20, 3);
-        setServoSlow(TBR, cTBR + 10, 3);
-        setServoSlow(SBR, cSBR + 20, 3);
+        setServoSlow(BRB, cBRB - 20, 3);
+        setServoSlow(BRT, cBRT + 10, 3);
+        setServoSlow(BRS, cBRS + 20, 3);
         delay(50);
-        setServoSlow(TBR, cTBR - 15, 3);
-        setServoSlow(BBR, cBBR + 30, 3);
+        setServoSlow(BRT, cBRT - 15, 3);
+        setServoSlow(BRB, cBRB + 30, 3);
         waitforButton();
         // Alle Beine Seitlich bewegen
         GoTo(slideright);
@@ -405,115 +405,115 @@ void sidestepR()
 
 void rotateL()
 {
-    setServo(BFR, cBFR + 50);
+    setServo(FRB, cFRB + 50);
     delay(20);
-    setServo(SFR, cSFR + 10);
+    setServo(FRS, cFRS + 10);
     delay(20);
-    setServo(BFR, cBFR - 50);
+    setServo(FRB, cFRB - 50);
     delay(200);
-    setServo(BBL, cBBL + 50);
+    setServo(BLB, cBLB + 50);
     delay(20);
-    setServo(SBL, cSBL + 10);
+    setServo(BLS, cBLS + 10);
     delay(20);
-    setServo(BBL, cBBL - 50);
+    setServo(BLB, cBLB - 50);
     delay(200);
 
-    setServo(BFL, cBFL - 50);
+    setServo(FLB, cFLB - 50);
     delay(20);
-    setServo(SFL, cSFL + 10);
+    setServo(FLS, cFLS + 10);
     delay(20);
-    setServo(BFL, cBFL + 50);
+    setServo(FLB, cFLB + 50);
     delay(200);
-    setServo(BBR, cBBR - 50);
+    setServo(BRB, cBRB - 50);
     delay(20);
-    setServo(SBR, cSBR + 10);
+    setServo(BRS, cBRS + 10);
     delay(20);
-    setServo(BBR, cBBR + 50);
+    setServo(BRB, cBRB + 50);
     delay(200);
-    setServo(SFR, cSFR - 10);
-    setServo(SBL, cSBL - 10);
-    setServo(SFL, cSFL - 10);
-    setServo(SBR, cSBR - 10);
+    setServo(FRS, cFRS - 10);
+    setServo(BLS, cBLS - 10);
+    setServo(FLS, cFLS - 10);
+    setServo(BRS, cBRS - 10);
 }
 
 void walk()
 {
-    setServo(BFR, cBFR + 30);
-    setServo(TFR, sTFR + 15);
+    setServo(FRB, cFRB + 30);
+    setServo(FRT, sFRT + 15);
     delay(100);
-    setServo(BFR, sBFR - 10);
-    // setServo(TFR, sTFR);
+    setServo(FRB, sFRB - 10);
+    // setServo(FRT, sFRT);
     setServoT(-5);
     delay(100);
 
-    setServo(BBL, cBBL + 30);
-    setServo(TBL, sTBL - 5);
+    setServo(BLB, cBLB + 30);
+    setServo(BLT, sBLT - 5);
     delay(100);
-    setServo(BBL, sBBL - 10);
-    // setServo(TBL, sTBL);
+    setServo(BLB, sBLB - 10);
+    // setServo(BLT, sBLT);
     setServoT(-5);
     delay(100);
 
-    setServo(BFL, cBFL - 35);
-    setServo(TFL, sTFL - 5);
+    setServo(FLB, cFLB - 35);
+    setServo(FLT, sFLT - 5);
     delay(100);
-    setServo(BFL, sBFL - 10);
-    // setServo(TFL, sTFL);
+    setServo(FLB, sFLB - 10);
+    // setServo(FLT, sFLT);
     setServoT(-5);
     delay(100);
 
-    setServo(BBR, cBBR - 25);
-    setServo(TBR, sTBR);
+    setServo(BRB, cBRB - 25);
+    setServo(BRT, sBRT);
     delay(100);
-    setServo(BBR, sBBR - 10);
-    // setServo(TBR, sTBR);
+    setServo(BRB, sBRB - 10);
+    // setServo(BRT, sBRT);
     // delay(200);
 
-    // setServo(TFR, sTFR+10);
-    // setServo(TFL, sTFL+10);
-    // setServo(TBR, sTBR+10);
-    // setServo(TBL, sTBL+10);
+    // setServo(FRT, sFRT+10);
+    // setServo(FLT, sFLT+10);
+    // setServo(BRT, sBRT+10);
+    // setServo(BLT, sBLT+10);
 
     GoTo(standpos);
 }
 
 void walkback()
 {
-    setServo(BFR, cBFR + 20);
-    setServo(TFR, sTFR - 20);
+    setServo(FRB, cFRB + 20);
+    setServo(FRT, sFRT - 20);
     delay(100);
-    setServo(BFR, sBFR - 5);
-    // setServo(TFR, sTFR);
+    setServo(FRB, sFRB - 5);
+    // setServo(FRT, sFRT);
     setServoT(+5);
     delay(100);
 
-    setServo(BBL, cBBL + 20);
-    setServo(TBL, sTBL - 10);
+    setServo(BLB, cBLB + 20);
+    setServo(BLT, sBLT - 10);
     delay(100);
-    setServo(BBL, sBBL);
-    // setServo(TBL, sTBL);
+    setServo(BLB, sBLB);
+    // setServo(BLT, sBLT);
     setServoT(+5);
     delay(100);
 
-    setServo(BFL, cBFL - 25);
-    setServo(TFL, sTFL + 5);
+    setServo(FLB, cFLB - 25);
+    setServo(FLT, sFLT + 5);
     delay(100);
-    setServo(BFL, sBFL);
-    // setServo(TFL, sTFL);
+    setServo(FLB, sFLB);
+    // setServo(FLT, sFLT);
     setServoT(+5);
     delay(100);
 
-    setServo(BBR, cBBR - 25);
-    setServo(TBR, sTBR + 5);
+    setServo(BRB, cBRB - 25);
+    setServo(BRT, sBRT + 5);
     delay(100);
-    setServo(BBR, sBBR + 10);
-    // setServo(TBR, sTBR);
+    setServo(BRB, sBRB + 10);
+    // setServo(BRT, sBRT);
     // delay(200);
 
-    // setServo(TFR, sTFR+10);
-    // setServo(TFL, sTFL+10);
-    // setServo(TBR, sTBR+10);
-    // setServo(TBL, sTBL+10);
+    // setServo(FRT, sFRT+10);
+    // setServo(FLT, sFLT+10);
+    // setServo(BRT, sBRT+10);
+    // setServo(BLT, sBLT+10);
 
     delay(100);
     GoTo(standpos);
