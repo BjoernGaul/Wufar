@@ -104,7 +104,7 @@ int nextPos[12] = {cFLS, cFLT, cFLB, cBRS, cBRT, cBRB, cFRS, cFRT, cFRB, cBLS, c
 
 
 //neutral positions
-const int servoOffsets[13] = {158, 135, 10, 150, 135, 30, -1, 99, 165, 185, 30, 60, 162}; //Offset
+const int servoOffsets[13] = {172, 135, 10, 150, 135, 30, -1, 99, 165, 185, 30, 60, 162}; //Offset
 const int nFLS = 0;
 const int nFLT = 0;
 const int nFLB = 0;
@@ -182,6 +182,7 @@ int* stringToIntArray(String str);
 
 void setup() {
   Serial.begin(9600);
+  Serial.println("Steup Start");
   servoDriver_module.begin();
   servoDriver_module.setPWMFreq(50);    //ArbeiFRTSequenz
   home();
@@ -382,7 +383,32 @@ void checkIR(){
         break;
       case FB7:
         if (controlmode == 0){
-          walkback();
+          //Rückwärts laufen
+          moveLeg(FL,1,0,3);
+          delay(100);
+          moveLeg(BR,0,0,2);
+          delay(100);
+          moveLeg(BR,-6,0,2);
+          delay(100);
+          moveLeg(BR,-6,0,1);
+          moveLeg(FL,-6,0,1);
+          delay(100);
+          moveLeg(FL,-6,0,0);
+          
+          standneutral();
+  
+          moveLeg(FR,1,0,3);
+          delay(100);
+          moveLeg(BL,0,0,2);
+          delay(100);
+          moveLeg(BL,-6,0,2);
+          delay(100);
+          moveLeg(BL,-6,0,1);
+          moveLeg(FR,-6,0,2);
+          delay(100);
+          moveLeg(FR,-6,0,0);
+          delay(100);
+          standneutral();
         } else if (controlmode == 1){
           selectedServo = FRS;
           printf("Selected Servo: %d\n", selectedServo);
@@ -391,46 +417,55 @@ void checkIR(){
       case FB8:
       if (controlmode == 0){
         //Dieser Bereich Zum Testen einzelner Bewegungen
-        /*moveLeg(BR,-1,0,3);
+
+        moveLeg(FL,8,0,4);
+        moveLeg(BR,8,0,4);
         delay(100);
-        moveLeg(FL,0,0,4);
+        moveLeg(FL,8,0,0);
+        moveLeg(BR,8,0,0);
         delay(100);
-        moveLeg(FL,6,0,4);
+        moveLeg(FL,4,0,0);
+        moveLeg(BR,4,0,0);
+        moveLeg(FR,-4,0,0);
+        moveLeg(BL,-4,0,0);
+
+        delay(200);
+
+        moveLeg(FR,4,0,6);
+        moveLeg(BL,4,0,6);
+
         delay(100);
-        moveLeg(FL,6,0,1);
-        moveLeg(BR,6,0,1);
-        delay(100);
-        moveLeg(BR,6,0,0);
+        moveLeg(FR,4,0,0);
+        moveLeg(BL,4,0,0);
         delay(100);
         standneutral();
-        delay(100);
-        moveLeg(BL,-1,0,3);
-        delay(100);
-        moveLeg(FR,0,0,4);
-        delay(100);
-        moveLeg(FR,6,0,4);
-        delay(100);
-        moveLeg(FR,6,0,1);
-        moveLeg(BL,6,0,1);
-        delay(100);
-        moveLeg(BL,6,0,0);
-        delay(100);
-        standneutral();*/
-        moveLeg(FL,0,3,4);
-        delay(1000);
-        moveLeg(FL,0,0,0);
-        delay(1000);
-        moveLeg(BR,0,3,4);
-        delay(1000);
-        moveLeg(BR,0,0,0);
-        delay(1000);
-        moveLeg(FR,0,3,4);
-        delay(1000);
-        moveLeg(FR,0,0,0);
-        delay(1000);
-        moveLeg(BL,0,3,4);
-        delay(1000);
-        moveLeg(BL,0,0,0);
+
+
+
+
+        // moveLeg(BR,-1,0,3);
+        // delay(100);
+        // moveLeg(FL,0,0,4);
+        // delay(100);
+        // moveLeg(FL,6,0,4);
+        // delay(100);
+        // moveLeg(FL,6,0,1);
+        // moveLeg(BR,6,0,1);
+        // delay(100);
+        // moveLeg(BR,6,0,0);
+        // standneutral();
+        // moveLeg(BL,-1,0,3);
+        // delay(100);
+        // moveLeg(FR,0,0,4);
+        // delay(100);
+        // moveLeg(FR,6,0,4);
+        // delay(100);
+        // moveLeg(FR,6,0,1);
+        // moveLeg(BL,6,0,1);
+        // delay(100);
+        // moveLeg(BL,6,0,0);
+        // delay(100);
+        // standneutral();
       } else
         if (controlmode == 1){
           selectedServo = FRT;
@@ -722,7 +757,7 @@ void moveLegGeneralFunc(int legID, float x, float y, float z) {
 }
 //TODO: Bein Links vorne anpassen, Beine hinten x anpassen 
 void moveLeg(int legID, float x, float y, float z) {
-  // Adjust the input coordinates by subtracting the offsets
+  // Offsets einbinden damit die Standard-Stehposition 0,0,0 ist
   float adjustedX;
   if(legID == 1 || legID == 3){
     adjustedX = X_OFFSET - x;
@@ -732,29 +767,29 @@ void moveLeg(int legID, float x, float y, float z) {
   float adjustedY = y + Y_OFFSET;
   float adjustedZ = Z_STAND - z;
 
-  // Call moveLegGeneralFunc with the adjusted coordinates
   moveLegGeneralFunc(legID, adjustedX, adjustedY, adjustedZ);
 }
+
 // Funktion zum Einstellen der Standard-Standposition für alle 4 Beine
 void setStandingPose() {
   singleLeg = false;
   for (int i = 0; i < 12; i++) {
     nextPos[i] = *cPositions[servoMap[i]];
 }
-  moveLegGeneralFunc(0, X_OFFSET, Y_OFFSET, Z_STAND);  // Links vorne (normal)
-  moveLegGeneralFunc(1, X_OFFSET, Y_OFFSET, Z_STAND); // Rechts hinten (invertiert)
-  moveLegGeneralFunc(2, X_OFFSET, Y_OFFSET, Z_STAND); // Rechts vorne (normal)
-  moveLegGeneralFunc(3, X_OFFSET, Y_OFFSET, Z_STAND);  // Links hinten (invertiert)
+  moveLegGeneralFunc(0, X_OFFSET, Y_OFFSET, Z_STAND); 
+  moveLegGeneralFunc(1, X_OFFSET, Y_OFFSET, Z_STAND); 
+  moveLegGeneralFunc(2, X_OFFSET, Y_OFFSET, Z_STAND); 
+  moveLegGeneralFunc(3, X_OFFSET, Y_OFFSET, Z_STAND); 
   GoTo(nextPos);
   singleLeg = true;
-  Serial.print("Next Positions: [");
-  for (int i = 0; i < 12; i++) {
-    Serial.print(nextPos[i]);
-    if (i < 11) {
-      Serial.print(", ");
-    }
-  }
-  Serial.println("]");
+  // Serial.print("Next Positions: [");
+  // for (int i = 0; i < 12; i++) {
+  //   Serial.print(nextPos[i]);
+  //   if (i < 11) {
+  //     Serial.print(", ");
+  //   }
+  // }
+  // Serial.println("]");
 }
 
 void LoRa_rxMode(){

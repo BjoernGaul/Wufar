@@ -116,7 +116,7 @@ void stand()
 
 void GoTo(const int targetPositions[12])
 {
-    int stepSize = 1;
+    int stepSize = 2;
     bool allServosAtTarget = false;
 
     while (!allServosAtTarget)
