@@ -27,10 +27,10 @@
 #define BLS 10
 #define BLT 11
 #define BLB 12
-#define FL 0
-#define BR 1
-#define FR 2
-#define BL 3
+#define FLt 0
+#define BRt 1
+#define FRt 2
+#define BLt 3
 
 //Hex-Adressen für die IR Fernbedienung
 #define FBPOWER 0xFFA25D
@@ -47,7 +47,7 @@
 #define FBONOFF 0xFFA25D
 #define FBUP 0xFF906F
 #define FBDOWN 0xFFE01F
-#define FBLEFT 0x22DD
+#define FBLEFT 0xFF22DD
 #define FBRIGHT 0xFFC23D
 #define FBVOLUP 0xFF629D
 #define FBVOLDOWN 0xFFA857
@@ -60,7 +60,7 @@
 #define L2 12.2  // Unterschenkellänge (cm)
 #define Z_STAND 12.5  // Ziel-Hüfthöhe für gebeugte Standhaltung
 #define X_OFFSET 2.0  // Füße leicht vor der Hüfte für Stabilität
-#define Y_OFFSET 2.0  // Abstand der Füße zur Mitte (seitlich)
+#define Y_OFFSET 1.5  // Abstand der Füße zur Mitte (seitlich)
 
 //LoRa
 #define DIO0 D3
@@ -104,7 +104,8 @@ int nextPos[12] = {cFLS, cFLT, cFLB, cBRS, cBRT, cBRB, cFRS, cFRT, cFRB, cBLS, c
 
 
 //neutral positions
-const int servoOffsets[13] = {172, 135, 10, 150, 135, 30, -1, 99, 165, 185, 30, 60, 162}; //Offset
+const int servoOffsets[13] = {177, 185, 10, 150, 135, 30, -1, 99, 165, 185, 30, 60, 162}; //Offset
+//zweiter offset: default 155
 const int nFLS = 0;
 const int nFLT = 0;
 const int nFLB = 0;
@@ -167,10 +168,14 @@ void gyrosetup();
 void gyroread();
 void calibrateGyro();
 void computeIK(int legID,float x, float y, float z, float &theta1, float &theta2, float &theta3);
-void moveLegGeneralFunc(int legID, float x, float y, float z);
-void moveLeg(int legID, float x, float y, float z);
+void moveLegGeneralFunc(int legID, float x, float y, float z, int stepsize = 0);
+void moveLeg(int legID, float x, float y, float z, int stepsize = 0);
 void setStandingPose();
 void standneutral();
+void sidestepRR();
+void sidestepLL();
+void rotateRR();
+void rotateLL();
 
 //LoRa functions
 void LoRa_rxMode();
@@ -192,9 +197,15 @@ void setup() {
   delay(1000);
   Serial.println("LoRa Start");
   LoRa.setPins( NSS , -1 , DIO0 );
-  if (!LoRa.begin(frequency)) {
-    Serial.println("LoRa init failed. Check your connections.");
-    while (true);    
+  unsigned long startAttemptTime = millis();
+  while (!LoRa.begin(frequency)) {
+    if (millis() - startAttemptTime > 2000) {
+      Serial.println("LoRa init failed. Check your connections.");
+      break;
+    }
+  }
+  if (millis() - startAttemptTime <= 2000) {
+    Serial.println("LoRa init succeeded.");
   }
   LoRa.onReceive(onReceive);
   LoRa.onTxDone(onTxDone);
@@ -331,7 +342,7 @@ void checkIR(){
         break;
       case FB1:
         if(controlmode == 0){
-          sidestepR();
+          sidestepRR();
           } else if(controlmode == 1){
             selectedServo = FLS;
             printf("Selected Servo: %d\n", selectedServo);
@@ -384,29 +395,29 @@ void checkIR(){
       case FB7:
         if (controlmode == 0){
           //Rückwärts laufen
-          moveLeg(FL,1,0,3);
+          moveLeg(FLt,1,0,3);
           delay(100);
-          moveLeg(BR,0,0,2);
+          moveLeg(BRt,0,0,2);
           delay(100);
-          moveLeg(BR,-6,0,2);
+          moveLeg(BRt,-6,0,2);
           delay(100);
-          moveLeg(BR,-6,0,1);
-          moveLeg(FL,-6,0,1);
+          moveLeg(BRt,-6,0,1);
+          moveLeg(FLt,-6,0,1);
           delay(100);
-          moveLeg(FL,-6,0,0);
+          moveLeg(FLt,-6,0,0);
           
           standneutral();
   
-          moveLeg(FR,1,0,3);
+          moveLeg(FRt,1,0,3);
           delay(100);
-          moveLeg(BL,0,0,2);
+          moveLeg(BLt,0,0,2);
           delay(100);
-          moveLeg(BL,-6,0,2);
+          moveLeg(BLt,-6,0,2);
           delay(100);
-          moveLeg(BL,-6,0,1);
-          moveLeg(FR,-6,0,2);
+          moveLeg(BLt,-6,0,1);
+          moveLeg(FRt,-6,0,2);
           delay(100);
-          moveLeg(FR,-6,0,0);
+          moveLeg(FRt,-6,0,0);
           delay(100);
           standneutral();
         } else if (controlmode == 1){
@@ -418,52 +429,52 @@ void checkIR(){
       if (controlmode == 0){
         //Dieser Bereich Zum Testen einzelner Bewegungen
 
-        moveLeg(FL,8,0,4);
-        moveLeg(BR,8,0,4);
+        moveLeg(FLt,6,0,4);
+        moveLeg(BRt,6,0,4);
         delay(100);
-        moveLeg(FL,8,0,0);
-        moveLeg(BR,8,0,0);
+        moveLeg(FLt,6,0,0);
+        moveLeg(BRt,6,0,0);
         delay(100);
-        moveLeg(FL,4,0,0);
-        moveLeg(BR,4,0,0);
-        moveLeg(FR,-4,0,0);
-        moveLeg(BL,-4,0,0);
-
-        delay(200);
-
-        moveLeg(FR,4,0,6);
-        moveLeg(BL,4,0,6);
+        moveLeg(FLt,3,0,0);
+        moveLeg(BRt,3,0,0);
+        moveLeg(FRt,-3,0,0);
+        moveLeg(BLt,-3,0,0);
 
         delay(100);
-        moveLeg(FR,4,0,0);
-        moveLeg(BL,4,0,0);
+
+        moveLeg(FRt,3,0,6);
+        moveLeg(BLt,3,0,6);
+
+        delay(100);
+        moveLeg(FRt,3,0,0);
+        moveLeg(BLt,3,0,0);
         delay(100);
         standneutral();
 
 
 
 
-        // moveLeg(BR,-1,0,3);
+        // moveLeg(BRt,-1,0,3);
         // delay(100);
-        // moveLeg(FL,0,0,4);
+        // moveLeg(FLt,0,0,4);
         // delay(100);
-        // moveLeg(FL,6,0,4);
+        // moveLeg(FLt,6,0,4);
         // delay(100);
-        // moveLeg(FL,6,0,1);
-        // moveLeg(BR,6,0,1);
+        // moveLeg(FLt,6,0,1);
+        // moveLeg(BRt,6,0,1);
         // delay(100);
-        // moveLeg(BR,6,0,0);
+        // moveLeg(BRt,6,0,0);
         // standneutral();
-        // moveLeg(BL,-1,0,3);
+        // moveLeg(BLt,-1,0,3);
         // delay(100);
-        // moveLeg(FR,0,0,4);
+        // moveLeg(FRt,0,0,4);
         // delay(100);
-        // moveLeg(FR,6,0,4);
+        // moveLeg(FRt,6,0,4);
         // delay(100);
-        // moveLeg(FR,6,0,1);
-        // moveLeg(BL,6,0,1);
+        // moveLeg(FRt,6,0,1);
+        // moveLeg(BLt,6,0,1);
         // delay(100);
-        // moveLeg(BL,6,0,0);
+        // moveLeg(BLt,6,0,0);
         // delay(100);
         // standneutral();
       } else
@@ -526,6 +537,13 @@ void checkIR(){
         break;
       case FBPLAY:
         paused = false;
+        break;
+      case FBRIGHT:
+        sidestepRR();
+        break;
+      case FBLEFT:
+        sidestepLL();
+        break;
       default:
         Serial.println("Unknown");
         break;
@@ -703,7 +721,7 @@ void computeIK(int legID, float x, float y, float z, float &theta1, float &theta
 int servoMap[12] = {0, 1, 2, 3, 4, 5, 7, 8, 9, 10, 11, 12};
 
 // Funktion zum Bewegen eines Beins mit Differenz-Winkel
-void moveLegGeneralFunc(int legID, float x, float y, float z) {
+void moveLegGeneralFunc(int legID, float x, float y, float z, int stepsize) {
   if (singleLeg){
     for (int i = 0; i < 12; i++) {
       nextPos[i] = *cPositions[servoMap[i]];
@@ -745,9 +763,15 @@ void moveLegGeneralFunc(int legID, float x, float y, float z) {
   nextPos[legID * 3 + 2] = currentTheta3[legID] + deltaTheta3;
 
   if (singleLeg){
+    if (stepsize >0){
+      setServoSlow(servoMap[legID * 3], currentTheta1[legID] + deltaTheta1, stepsize);
+      setServoSlow(servoMap[legID * 3 + 1], currentTheta2[legID] + deltaTheta2, stepsize);
+      setServoSlow(servoMap[legID * 3 + 2], currentTheta3[legID] + deltaTheta3, stepsize);
+    }else{
     setServo(servoMap[legID * 3], currentTheta1[legID] + deltaTheta1);
     setServo(servoMap[legID * 3 + 1], currentTheta2[legID] + deltaTheta2);
     setServo(servoMap[legID * 3 + 2], currentTheta3[legID] + deltaTheta3);
+    }
   }
     // Neue Winkelwerte speichern --> muss nochmal extra in currentTheta gespeichert werden
     // currentTheta1[legID] += deltaTheta1;
@@ -756,7 +780,7 @@ void moveLegGeneralFunc(int legID, float x, float y, float z) {
 
 }
 //TODO: Bein Links vorne anpassen, Beine hinten x anpassen 
-void moveLeg(int legID, float x, float y, float z) {
+void moveLeg(int legID, float x, float y, float z, int stepsize) {
   // Offsets einbinden damit die Standard-Stehposition 0,0,0 ist
   float adjustedX;
   if(legID == 1 || legID == 3){
@@ -767,7 +791,7 @@ void moveLeg(int legID, float x, float y, float z) {
   float adjustedY = y + Y_OFFSET;
   float adjustedZ = Z_STAND - z;
 
-  moveLegGeneralFunc(legID, adjustedX, adjustedY, adjustedZ);
+  moveLegGeneralFunc(legID, adjustedX, adjustedY, adjustedZ, stepsize);
 }
 
 // Funktion zum Einstellen der Standard-Standposition für alle 4 Beine
@@ -899,8 +923,110 @@ int* stringToIntArray(String str)
 }
 
 void standneutral(){
-  moveLeg(FL,0,0,0);
-  moveLeg(BR,0,0,0);
-  moveLeg(FR,0,0,0);
-  moveLeg(BL,0,0,0);
+  moveLeg(FLt,0,0,0);
+  moveLeg(BRt,0,0,0);
+  moveLeg(FRt,0,0,0);
+  moveLeg(BLt,0,0,0);
+}
+
+void sidestepRR(){
+  //Gewicht nach links verteilen
+moveLeg(FLt, 0,0,3);
+moveLeg(BLt, 0,0,3);
+moveLeg(FRt, 0,0,-1);
+moveLeg(BRt, 0,0,-1);
+delay(200);
+// waitforButton();
+moveLeg(FLt, 0,0,4); //FL bisschen mehr absenken fürs gleichgewicht
+moveLeg(BRt,0,6,2,4);
+delay(100);
+moveLeg(BRt,0,6,-3,4);
+delay(100);
+// waitforButton();
+//FR nach rechts und dann absenken
+moveLeg(FLt, 0,0,3);
+moveLeg(BLt, 0,0,4);
+moveLeg(FRt,0,6,2,4);
+delay(100);
+moveLeg(FRt,0,6,-3,4);
+delay(100);
+// waitforButton();
+//FL nach rechts und dann absenken
+// Slide to the right
+moveLeg(FLt, 0,6,-2);
+moveLeg(BLt, 0,6,-2); 
+moveLeg(FRt, 0,0,3);
+moveLeg(BRt, 0,0,3);
+delay(100);
+// waitforButton();
+//BL nachziehen
+moveLeg(BLt, -3,1,8,4);
+setServo(BLS, cBLS+10);
+// waitforButton(); 
+setServo(BLT, cBLT-30);
+delay(100);
+// waitforButton(); 
+moveLeg(BLt, 0,0,-1,4);
+delay(100);
+// waitforButton(); 
+//FL nachziehen
+moveLeg(FLt,4,1,8,4);
+setServo(FLT, cFLT+20);
+delay(100);
+moveLeg(FLt,0,0,-1,4);
+delay(100);
+// waitforButton();
+//Normal stehen
+standneutral();
+}
+
+void sidestepLL(){
+  //Gewicht nach links verteilen
+moveLeg(FRt, 0,0,3);
+moveLeg(BRt, 0,0,3);
+moveLeg(FLt, 0,0,-1);
+moveLeg(BLt, 0,0,-1);
+delay(200);
+// waitforButton();
+moveLeg(FRt, 0,0,4); //FL bisschen mehr absenken fürs gleichgewicht
+moveLeg(BLt,0,7,2,4);
+delay(100);
+moveLeg(BLt,0,7,-3,4);
+delay(100);
+// waitforButton();
+//FR nach rechts und dann absenken
+moveLeg(FRt, 0,0,3);
+moveLeg(BRt, 0,0,4);
+moveLeg(FLt,0,6,2,4);
+delay(100);
+moveLeg(FLt,0,6,-3,4);
+delay(100);
+// waitforButton();
+//FL nach rechts und dann absenken
+// Slide to the right
+moveLeg(FRt, 0,6,-2);
+moveLeg(BRt, 0,6,-2); 
+moveLeg(FLt, 0,0,3);
+moveLeg(BLt, 0,0,3);
+delay(100);
+// waitforButton();
+//BL nachziehen
+moveLeg(BRt, -3,1,8,4);
+setServo(BRS, cBRS+10);
+// waitforButton(); 
+setServo(BRT, cBRT+30);
+delay(100);
+// waitforButton(); 
+moveLeg(BRt, 0,0,-1,4);
+delay(100);
+// waitforButton(); 
+//FL nachziehen
+moveLeg(FRt,4,1,8,4);
+setServo(FRT, cFRT-20);
+delay(100);
+moveLeg(FRt,0,0,-1,4);
+delay(100);
+// waitforButton();
+//Normal stehen
+standneutral();
 }
