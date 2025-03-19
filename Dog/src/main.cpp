@@ -104,7 +104,7 @@ int nextPos[12] = {cFLS, cFLT, cFLB, cBRS, cBRT, cBRB, cFRS, cFRT, cFRB, cBLS, c
 
 
 //neutral positions
-const int servoOffsets[13] = {177, 185, 10, 150, 135, 30, -1, 99, 165, 185, 30, 60, 162}; //Offset
+const int servoOffsets[13] = {177, 175, 10, 150, 135, 30, -1, 99, 165, 185, 30, 60, 162}; //Offset
 //zweiter offset: default 155
 const int nFLS = 0;
 const int nFLT = 0;
@@ -172,6 +172,7 @@ void moveLegGeneralFunc(int legID, float x, float y, float z, int stepsize = 0);
 void moveLeg(int legID, float x, float y, float z, int stepsize = 0);
 void setStandingPose();
 void standneutral();
+void walkFF();
 void sidestepRR();
 void sidestepLL();
 void rotateRR();
@@ -194,23 +195,22 @@ void setup() {
   irrecv.enableIRIn(); //Infrarotfernbedienung
   Serial.println("IR enabled");
   //LoRa Setup
-  delay(1000);
+  delay(500);
   Serial.println("LoRa Start");
   LoRa.setPins( NSS , -1 , DIO0 );
   unsigned long startAttemptTime = millis();
   while (!LoRa.begin(frequency)) {
-    if (millis() - startAttemptTime > 2000) {
+    if (millis() - startAttemptTime > 1000) {
       Serial.println("LoRa init failed. Check your connections.");
       break;
     }
   }
-  if (millis() - startAttemptTime <= 2000) {
+  if (millis() - startAttemptTime <= 1000) {
     Serial.println("LoRa init succeeded.");
   }
   LoRa.onReceive(onReceive);
   LoRa.onTxDone(onTxDone);
   LoRa_rxMode();
-  Serial.println("LoRa init succeeded.");
   /*readMacAdress();
   WiFi.mode(WIFI_STA);
   if (esp_now_init() != ESP_OK) {
@@ -238,7 +238,7 @@ void loop() {
   checkIR();
   //gyroread();
   if (walking){
-    walk();
+    walkFF();
   }
 
   //LoRa
@@ -342,7 +342,7 @@ void checkIR(){
         break;
       case FB1:
         if(controlmode == 0){
-          sidestepRR();
+          rotateLL();
           } else if(controlmode == 1){
             selectedServo = FLS;
             printf("Selected Servo: %d\n", selectedServo);
@@ -358,9 +358,7 @@ void checkIR(){
         break;
       case FB3:
         if(controlmode == 0){
-          GoTo(standpos);
-          sitting = false;
-          standing = true;
+          rotateRR();
         } else if (controlmode == 1){
           selectedServo = FLB;
           printf("Selected Servo: %d\n", selectedServo);
@@ -428,27 +426,8 @@ void checkIR(){
       case FB8:
       if (controlmode == 0){
         //Dieser Bereich Zum Testen einzelner Bewegungen
+        walking = !walking;
 
-        moveLeg(FLt,6,0,4);
-        moveLeg(BRt,6,0,4);
-        delay(100);
-        moveLeg(FLt,6,0,0);
-        moveLeg(BRt,6,0,0);
-        delay(100);
-        moveLeg(FLt,3,0,0);
-        moveLeg(BRt,3,0,0);
-        moveLeg(FRt,-3,0,0);
-        moveLeg(BLt,-3,0,0);
-
-        delay(100);
-
-        moveLeg(FRt,3,0,6);
-        moveLeg(BLt,3,0,6);
-
-        delay(100);
-        moveLeg(FRt,3,0,0);
-        moveLeg(BLt,3,0,0);
-        delay(100);
         standneutral();
 
 
@@ -799,7 +778,7 @@ void setStandingPose() {
   singleLeg = false;
   for (int i = 0; i < 12; i++) {
     nextPos[i] = *cPositions[servoMap[i]];
-}
+  }
   moveLegGeneralFunc(0, X_OFFSET, Y_OFFSET, Z_STAND); 
   moveLegGeneralFunc(1, X_OFFSET, Y_OFFSET, Z_STAND); 
   moveLegGeneralFunc(2, X_OFFSET, Y_OFFSET, Z_STAND); 
@@ -1029,4 +1008,109 @@ delay(100);
 // waitforButton();
 //Normal stehen
 standneutral();
+}
+
+
+void rotateRR(){
+  singleLeg = false;
+  for (int i = 0; i < 12; i++) {
+    nextPos[i] = *cPositions[servoMap[i]];
+  }
+  moveLeg(FRt, 0,-6, 6); 
+  moveLeg(BLt, 0,-6, 6); 
+  moveLeg(FLt, 0, 6,-3); 
+  moveLeg(BRt, 0, 6,-3); 
+  GoTo(nextPos);
+  singleLeg = true;
+  setServo(FLB, cFLB-10);
+  delay(100);
+  // waitforButton();
+  moveLeg(BRt, 0,0,6,4);
+  delay(100);
+  // waitforButton();
+  moveLeg(BRt, 0,-2,2,4);
+  moveLeg(FLt, 0,0,6,4);
+  delay(100);
+  // waitforButton();
+  moveLeg(FLt, 0,-3,1,4);
+  delay(100);
+  // waitforButton();
+  moveLeg(FRt, 0,0,8,4);
+  delay(100);
+  // waitforButton();
+  moveLeg(FRt, 0,0,2,4);
+  delay(100);
+  // waitforButton();
+  setServo(BLT, cBLT-20);
+  setServo(BLB, cBLB+20);
+
+  // waitforButton();
+  setServo(BLS, cBLS-30);
+  moveLeg(BLt, 0,0,2,4);
+  // waitforButton();
+  setStandingPose();
+}
+
+void rotateLL(){
+  singleLeg = false;
+  for (int i = 0; i < 12; i++) {
+    nextPos[i] = *cPositions[servoMap[i]];
+  }
+  moveLeg(FLt, 0,-6, 6); 
+  moveLeg(BRt, 0,-6, 6); 
+  moveLeg(FRt, 0, 6,-3); 
+  moveLeg(BLt, 0, 6,-3); 
+  GoTo(nextPos);
+  singleLeg = true;
+  setServo(FRB, cFRB-10);
+  delay(100);
+  // waitforButton();
+  moveLeg(BLt, 0,0,6,4);
+  delay(100);
+  // waitforButton();
+  moveLeg(BLt, 0,-2,2,4);
+  moveLeg(FRt, 2,0,7,4);
+  delay(100);
+  // waitforButton();
+  moveLeg(FRt, 0,-3,1,4);
+  delay(100);
+  // waitforButton();
+  moveLeg(FLt, 0,0,8,4);
+  delay(100);
+  // waitforButton();
+  moveLeg(FLt, 0,0,2,4);
+  delay(100);
+  // waitforButton();
+  setServo(BRT, cBRT-20);
+  setServo(BRB, cBRB+20);
+
+  // waitforButton();
+  setServo(BRS, cBRS-30);
+  moveLeg(BRt, 0,0,2,4);
+  // waitforButton();
+  setStandingPose();
+}
+
+void walkFF(){
+  
+  moveLeg(FLt,5,0,6);
+  moveLeg(BRt,5,0,6);
+  moveLeg(FRt,0,0,0);
+  moveLeg(BLt,0,0,0);
+  delay(100);
+  // waitforButton();
+  moveLeg(FLt,5,0,0);
+  moveLeg(BRt,5,0,0);
+  delay(400);
+
+  moveLeg(FRt,5,0,6);
+  moveLeg(BLt,5,0,6);
+  moveLeg(FLt,0,0,0);
+  moveLeg(BRt,0,0,0);
+  delay(100);
+  // waitforButton();
+  moveLeg(FRt,5,0,0);
+  moveLeg(BLt,5,0,0);
+  delay(400);
+
 }
