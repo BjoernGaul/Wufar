@@ -1,5 +1,4 @@
 #include "functions.h"
-
 #include <Arduino.h>
 #include <Adafruit_PWMServoDriver.h>
 #include <SPI.h>
@@ -14,21 +13,6 @@
 #include <Adafruit_MPU6050.h>
 
 extern Adafruit_PWMServoDriver servoDriver_module;
-/*extern int cFLS, cFLT, cFLB, cBRS, cBRT, cBRB, cFRS, cFRT, cFRB, cBLS, cBLT, cBLB;
-extern const int nFLS, nFLT, nFLB, nBRS, nBRT, nBRB, nFRS, nFRT, nFRB, nBLS, nBLT, nBLB;
-extern const int sFLS, sFLT, sFLB, sBRS, sBRT, sBRB, sFRS, sFRT, sFRB, sBLS, sBLT, sBLB;
-extern int* cPositions[13];
-extern const int nPositions[13];
-extern const int sPositions[13];
-//Positions for the GoTo function
-extern const int sitpos[12];
-extern const int standpos[12];
-extern const int slideright[12];
-extern uint8_t remoteMac[6];
-extern bool walking;
-extern bool sitting;
-extern bool standing;
-extern int selectedServo;*/
 
 
 #define FLS 0
@@ -43,9 +27,18 @@ extern int selectedServo;*/
 #define BLS 10
 #define BLT 11
 #define BLB 12
+#define FLt 0
+#define BRt 1
+#define FRt 2
+#define BLt 3
 #define SERVOMIN 125
 #define SERVOMAX 600
 
+#define L1 8.4   // Upper Leg Length (cm)
+#define L2 12.2  // Lower Leg Length (cm)
+#define Z_STAND 12.5  // Hip Height while standing (cm)
+#define X_OFFSET 2.0  // Feet slightly in front of the hip
+#define Y_OFFSET 1.5  // Distance foot to hip
 
 int angleToPulse(int ang){
     int pulse = map(ang,0, 270, SERVOMIN,SERVOMAX);
@@ -82,30 +75,30 @@ void home()
   standing = false;
   return;
 }
-
+//TODO: schneller aufstehen (in 2 schritten)
 void stand()
 {
   if (sitting)
   {
-    setServo(FLS, sFLS); // Seiten ausrichten
+    setServo(FLS, sFLS); 
     setServo(BRS, sBRS);
     setServo(FRS, sFRS);
     setServo(BLS, sBLS);
-    setServo(FLT, cFLT - ((cFLT - sFLT) / 2)); // Top halb ausrichten
+    setServo(FLT, cFLT - ((cFLT - sFLT) / 2)); 
     setServo(BRT, cBRT - ((cBRT - sBRT) / 2));
     setServo(FRT, cFRT - ((cFRT - sFRT) / 2));
     setServo(BLT, cBLT - ((cBLT - sBLT) / 2));
-    setServo(FLB, cFLB - ((cFLB - sFLB) / 3)); // Bottom halb ausrichten
+    setServo(FLB, cFLB - ((cFLB - sFLB) / 3)); 
     setServo(BRB, cBRB - ((cBRB - sBRB) / 3));
     setServo(FRB, cFRB - ((cFRB - sFRB) / 3));
     setServo(BLB, cBLB - ((cBLB - sBLB) / 3));
     delay(300);
-    setServo(FLT, sFLT); // Top ausrichten
+    setServo(FLT, sFLT); 
     setServo(BRT, sBRT);
     setServo(FRT, sFRT);
     setServo(BLT, sBLT);
     delay(300);
-    setServo(FLB, sFLB); // Bottom ausrichten
+    setServo(FLB, sFLB);
     setServo(BRB, sBRB);
     setServo(FRB, sFRB);
     setServo(BLB, sBLB);
@@ -343,7 +336,6 @@ void setServoS(int GoUp)
 
 void setServoT(int GoUp)
 {
-    // Rechts: hoch addieren, Links: hoch subtrahieren
     setServo(FLT, cFLT - GoUp);
     setServo(BRT, cBRT + GoUp);
     setServo(FRT, cFRT + GoUp);
@@ -352,7 +344,6 @@ void setServoT(int GoUp)
 
 void setServoB(int GoUp)
 {
-    // Rechts: hoch subtrahieren, Links: hoch addieren
     setServo(FLB, cFLB + GoUp);
     setServo(BRB, cBRB + GoUp);
     setServo(FRB, cFRB - GoUp);
@@ -519,11 +510,360 @@ void walkback()
     GoTo(standpos);
 }
 
-void correctAll()
-{
-  GoTo(standpos);
+// Function to compute the Inverse Kinematics for a leg
+void computeIK(int legID, float x, float y, float z, float &theta1, float &theta2, float &theta3) {
+    /*if (legID ==0 || legID == 2) {
+      x = -x;  // Spiegelung der hinteren Beine
+    }*/
+    x =-x;
+    if (legID == 0 || legID == 3) {  //Linke Beine 
+        theta1 = atan2(y, z) * 180.0 / M_PI;
+    } else {  // Rechte Beine
+        theta1 = -atan2(y, z) * 180.0 / M_PI;
+    }
+  
+    float d = sqrt(x*x + z*z);  // Abstand von Hüfte zum Fuß in 2D
+  
+    float cosTheta3 = (L1*L1 + L2*L2 - d*d) / (2 * L1 * L2);
+    theta3 = acos(cosTheta3) * 180.0 / M_PI;  // Kniewinkel in Grad
+  
+    float alpha = atan2(x, z);
+    float beta = acos((L1*L1 + d*d - L2*L2) / (2 * L1 * d));
+    theta2 = 90-((alpha+beta) * 180.0 / M_PI);  // Hüftwinkel in Grad
+  }
+  
+  // Servo-Mapping (Pin-Number skip 6)
+  int servoMap[12] = {0, 1, 2, 3, 4, 5, 7, 8, 9, 10, 11, 12};
+  
+  // general Function to move a leg in a local coordinate system
+  void moveLegGeneralFunc(int legID, float x, float y, float z, int stepsize) {
+    if (singleLeg){
+      for (int i = 0; i < 12; i++) {
+        nextPos[i] = *cPositions[servoMap[i]];
+      }
+    }
+    float theta1, theta2, theta3;
+    int currentTheta1[4] = {cFLS, cBRS, cFRS, cBLS};  
+    int currentTheta2[4] = {cFLT, cBRT, cFRT, cBLT};  
+    int currentTheta3[4] = {cFLB, cBRB, cFRB, cBLB};  
+  
+    computeIK(legID, x, y, z, theta1, theta2, theta3);
+    // Winkelvorzeichen je nach bein anpassen
+    if (legID == 0 || legID == 1){
+      theta2 = -theta2;
+    }
+    if (legID == 2 || legID == 3){
+      theta3 = -theta3;
+    }
+    if (legID == 1 || legID == 3){
+      theta1 = -theta1;
+    }
+    // Differenz zum aktuellen Winkel berechnen
+    int deltaTheta1 = round(theta1) - currentTheta1[legID];
+    int deltaTheta2 = round(theta2) - currentTheta2[legID];
+    int deltaTheta3 = round(theta3) - currentTheta3[legID];
+    
+    // Serial.print("currentTheta1: "); Serial.println(currentTheta1[legID]);
+    // Serial.print("currentTheta2: "); Serial.println(currentTheta2[legID]);
+    // Serial.print("currentTheta3: "); Serial.println(currentTheta3[legID]);
+    // Serial.print("Theta1: "); Serial.println(theta1);
+    // Serial.print("Theta2: "); Serial.println(theta2);
+    // Serial.print("Theta3: "); Serial.println(theta3);
+    // Serial.print("Delta Theta1: "); Serial.println(deltaTheta1);
+    // Serial.print("Delta Theta2: "); Serial.println(deltaTheta2);
+    // Serial.print("Delta Theta3: "); Serial.println(deltaTheta3);
+    // Servos um die Differenz bewegen
+    nextPos[legID * 3] = currentTheta1[legID] + deltaTheta1;
+    nextPos[legID * 3 + 1] = currentTheta2[legID] + deltaTheta2;
+    nextPos[legID * 3 + 2] = currentTheta3[legID] + deltaTheta3;
+  
+    if (singleLeg){
+      if (stepsize >0){
+        setServoSlow(servoMap[legID * 3], currentTheta1[legID] + deltaTheta1, stepsize);
+        setServoSlow(servoMap[legID * 3 + 1], currentTheta2[legID] + deltaTheta2, stepsize);
+        setServoSlow(servoMap[legID * 3 + 2], currentTheta3[legID] + deltaTheta3, stepsize);
+      }else{
+      setServo(servoMap[legID * 3], currentTheta1[legID] + deltaTheta1);
+      setServo(servoMap[legID * 3 + 1], currentTheta2[legID] + deltaTheta2);
+      setServo(servoMap[legID * 3 + 2], currentTheta3[legID] + deltaTheta3);
+      }
+    }
+      // Neue Winkelwerte speichern --> muss nochmal extra in currentTheta gespeichert werden
+      // currentTheta1[legID] += deltaTheta1;
+      // currentTheta2[legID] += deltaTheta2;
+      // currentTheta3[legID] += deltaTheta3;
+  
+  }
+  // Leg function including offset calculation
+  void moveLeg(int legID, float x, float y, float z, int stepsize) {
+    // Offsets einbinden damit die Standard-Stehposition 0,0,0 ist
+    float adjustedX;
+    if(legID == 1 || legID == 3){
+      adjustedX = X_OFFSET - x;
+    }else{
+    adjustedX = x + X_OFFSET;
+    }
+    float adjustedY = y + Y_OFFSET;
+    float adjustedZ = Z_STAND - z;
+  
+    moveLegGeneralFunc(legID, adjustedX, adjustedY, adjustedZ, stepsize);
+  }
+  
+  void setStandingPose() {
+    singleLeg = false;
+    for (int i = 0; i < 12; i++) {
+      nextPos[i] = *cPositions[servoMap[i]];
+    }
+    moveLegGeneralFunc(0, X_OFFSET, Y_OFFSET, Z_STAND); 
+    moveLegGeneralFunc(1, X_OFFSET, Y_OFFSET, Z_STAND); 
+    moveLegGeneralFunc(2, X_OFFSET, Y_OFFSET, Z_STAND); 
+    moveLegGeneralFunc(3, X_OFFSET, Y_OFFSET, Z_STAND); 
+    GoTo(nextPos);
+    singleLeg = true;
+    // Serial.print("Next Positions: [");
+    // for (int i = 0; i < 12; i++) {
+    //   Serial.print(nextPos[i]);
+    //   if (i < 11) {
+    //     Serial.print(", ");
+    //   }
+    // }
+    // Serial.println("]");
+  }
+  
+void standneutral(){
+    moveLeg(FLt,0,0,0);
+    moveLeg(BRt,0,0,0);
+    moveLeg(FRt,0,0,0);
+    moveLeg(BLt,0,0,0);
+  }
+  
+  void sidestepRR(){
+    //Gewicht nach links verteilen
+  moveLeg(FLt, 0,0,3);
+  moveLeg(BLt, 0,0,3);
+  moveLeg(FRt, 0,0,-1);
+  moveLeg(BRt, 0,0,-1);
+  delay(200);
+  // waitforButton();
+  moveLeg(FLt, 0,0,4); //FL bisschen mehr absenken fürs gleichgewicht
+  moveLeg(BRt,0,6,2,4);
   delay(100);
-  setServoTB(-10);
+  moveLeg(BRt,0,6,-3,4);
   delay(100);
-  setServoTB(10);
-}
+  // waitforButton();
+  //FR nach rechts und dann absenken
+  moveLeg(FLt, 0,0,3);
+  moveLeg(BLt, 0,0,4);
+  moveLeg(FRt,0,6,2,4);
+  delay(100);
+  moveLeg(FRt,0,6,-3,4);
+  delay(100);
+  // waitforButton();
+  //FL nach rechts und dann absenken
+  // Slide to the right
+  moveLeg(FLt, 0,6,-2);
+  moveLeg(BLt, 0,6,-2); 
+  moveLeg(FRt, 0,0,3);
+  moveLeg(BRt, 0,0,3);
+  delay(100);
+  // waitforButton();
+  //BL nachziehen
+  moveLeg(BLt, -3,1,8,4);
+  setServo(BLS, cBLS+10);
+  // waitforButton(); 
+  setServo(BLT, cBLT-30);
+  delay(100);
+  // waitforButton(); 
+  moveLeg(BLt, 0,0,-1,4);
+  delay(100);
+  // waitforButton(); 
+  //FL nachziehen
+  moveLeg(FLt,4,1,8,4);
+  setServo(FLT, cFLT+20);
+  delay(100);
+  moveLeg(FLt,0,0,-1,4);
+  delay(100);
+  // waitforButton();
+  //Normal stehen
+  standneutral();
+  }
+  
+  void sidestepLL(){
+    //Gewicht nach links verteilen
+  moveLeg(FRt, 0,0,3);
+  moveLeg(BRt, 0,0,3);
+  moveLeg(FLt, 0,0,-1);
+  moveLeg(BLt, 0,0,-1);
+  delay(200);
+  // waitforButton();
+  moveLeg(FRt, 0,0,4); //FL bisschen mehr absenken fürs gleichgewicht
+  moveLeg(BLt,0,7,2,4);
+  delay(100);
+  moveLeg(BLt,0,7,-3,4);
+  delay(100);
+  // waitforButton();
+  //FR nach rechts und dann absenken
+  moveLeg(FRt, 0,0,3);
+  moveLeg(BRt, 0,0,4);
+  moveLeg(FLt,0,6,2,4);
+  delay(100);
+  moveLeg(FLt,0,6,-3,4);
+  delay(100);
+  // waitforButton();
+  //FL nach rechts und dann absenken
+  // Slide to the right
+  moveLeg(FRt, 0,6,-2);
+  moveLeg(BRt, 0,6,-2); 
+  moveLeg(FLt, 0,0,3);
+  moveLeg(BLt, 0,0,3);
+  delay(100);
+  // waitforButton();
+  //BL nachziehen
+  moveLeg(BRt, -3,1,8,4);
+  setServo(BRS, cBRS+10);
+  // waitforButton(); 
+  setServo(BRT, cBRT+30);
+  delay(100);
+  // waitforButton(); 
+  moveLeg(BRt, 0,0,-1,4);
+  delay(100);
+  // waitforButton(); 
+  //FL nachziehen
+  moveLeg(FRt,4,1,8,4);
+  setServo(FRT, cFRT-20);
+  delay(100);
+  moveLeg(FRt,0,0,-1,4);
+  delay(100);
+  // waitforButton();
+  //Normal stehen
+  standneutral();
+  }
+  
+  
+  void rotateRR(){
+    singleLeg = false;
+    for (int i = 0; i < 12; i++) {
+      nextPos[i] = *cPositions[servoMap[i]];
+    }
+    moveLeg(FRt, 0,-6, 6); 
+    moveLeg(BLt, 0,-6, 6); 
+    moveLeg(FLt, 0, 6,-3); 
+    moveLeg(BRt, 0, 6,-3); 
+    GoTo(nextPos);
+    singleLeg = true;
+    setServo(FLB, cFLB-10);
+    delay(100);
+    // waitforButton();
+    moveLeg(BRt, 0,0,6,4);
+    delay(100);
+    // waitforButton();
+    moveLeg(BRt, 0,-2,2,4);
+    moveLeg(FLt, 0,0,6,4);
+    delay(100);
+    // waitforButton();
+    moveLeg(FLt, 0,-3,1,4);
+    delay(100);
+    // waitforButton();
+    moveLeg(FRt, 0,0,8,4);
+    delay(100);
+    // waitforButton();
+    moveLeg(FRt, 0,0,2,4);
+    delay(100);
+    // waitforButton();
+    setServo(BLT, cBLT-20);
+    setServo(BLB, cBLB+20);
+  
+    // waitforButton();
+    setServo(BLS, cBLS-30);
+    moveLeg(BLt, 0,0,2,4);
+    // waitforButton();
+    setStandingPose();
+  }
+  
+  void rotateLL(){
+    singleLeg = false;
+    for (int i = 0; i < 12; i++) {
+      nextPos[i] = *cPositions[servoMap[i]];
+    }
+    moveLeg(FLt, 0,-6, 6); 
+    moveLeg(BRt, 0,-6, 6); 
+    moveLeg(FRt, 0, 6,-3); 
+    moveLeg(BLt, 0, 6,-3); 
+    GoTo(nextPos);
+    singleLeg = true;
+    setServo(FRB, cFRB-10);
+    delay(100);
+    // waitforButton();
+    moveLeg(BLt, 0,0,6,4);
+    delay(100);
+    // waitforButton();
+    moveLeg(BLt, 0,-2,2,4);
+    moveLeg(FRt, 2,0,7,4);
+    delay(100);
+    // waitforButton();
+    moveLeg(FRt, 0,-3,1,4);
+    delay(100);
+    // waitforButton();
+    moveLeg(FLt, 0,0,8,4);
+    delay(100);
+    // waitforButton();
+    moveLeg(FLt, 0,0,2,4);
+    delay(100);
+    // waitforButton();
+    setServo(BRT, cBRT-20);
+    setServo(BRB, cBRB+20);
+  
+    // waitforButton();
+    setServo(BRS, cBRS-30);
+    moveLeg(BRt, 0,0,2,4);
+    // waitforButton();
+    setStandingPose();
+  }
+  
+  void walkFF(){
+    
+    moveLeg(FLt,5,0,6);
+    moveLeg(BRt,5,0,6);
+    moveLeg(FRt,0,0,0);
+    moveLeg(BLt,0,0,0);
+    delay(100);
+    // waitforButton();
+    moveLeg(FLt,5,0,0);
+    moveLeg(BRt,5,0,0);
+    delay(400);
+  
+    moveLeg(FRt,5,0,6);
+    moveLeg(BLt,5,0,6);
+    moveLeg(FLt,0,0,0);
+    moveLeg(BRt,0,0,0);
+    delay(100);
+    // waitforButton();
+    moveLeg(FRt,5,0,0);
+    moveLeg(BLt,5,0,0);
+    delay(400);
+  }
+
+  void bop(){
+    singleLeg = false;
+    for (int i = 0; i < 12; i++) {
+      nextPos[i] = *cPositions[servoMap[i]];
+    }
+    moveLeg(FLt, 0,0, 6);
+    moveLeg(BRt, 0,0, 6);
+    moveLeg(FRt, 0,0, 6);
+    moveLeg(BLt, 0,0, 6);
+    GoTo(nextPos);
+    singleLeg = true;
+    delay(700);
+    singleLeg = false;
+    for (int i = 0; i < 12; i++) {
+      nextPos[i] = *cPositions[servoMap[i]];
+    }
+    moveLeg(FLt, 0,0, -4);
+    moveLeg(BRt, 0,0, -4);
+    moveLeg(FRt, 0,0, -4);
+    moveLeg(BLt, 0,0, -4);
+    GoTo(nextPos);
+    singleLeg = true;
+    delay(700);
+  }
