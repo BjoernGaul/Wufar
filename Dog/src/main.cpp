@@ -1,19 +1,16 @@
 #include <Arduino.h>
 #include <Adafruit_PWMServoDriver.h>
 #include <SPI.h>
-#include <esp_now.h>
-#include <WiFi.h>
 #include <Wire.h>
-#include <esp_wifi.h>
 #include <IRremoteESP8266.h>
 #include <IRrecv.h>
 #include <IRutils.h>
 #include <Adafruit_Sensor.h>
 #include <Adafruit_MPU6050.h>
-#include "functions.h"
 #include <LoRa.h>
+#include "functions.h"
 
-//Pin of Servos
+// Pin of Servos
 #define FLS 0
 #define FLT 1
 #define FLB 2
@@ -31,7 +28,7 @@
 #define FRt 2
 #define BLt 3
 
-//Hex-Adressen for IR Remote
+// Hex-Adressen for IR Remote
 #define FBPOWER 0xFFA25D
 #define FB0 0xFF6897
 #define FB1 0xFF30CF
@@ -43,7 +40,6 @@
 #define FB7 0xFF42BD
 #define FB8 0xFF4AB5
 #define FB9 0xFF52AD
-#define FBONOFF 0xFFA25D
 #define FBUP 0xFF906F
 #define FBDOWN 0xFFE01F
 #define FBLEFT 0xFF22DD
@@ -55,23 +51,24 @@
 #define FBREPT 0xFFB04F
 #define FBFUNC 0xFFE21D
 
-#define L1 8.4   // Upper Leg Length (cm)
-#define L2 12.2  // Lower Leg Length (cm)
-#define Z_STAND 12.5  // Hip Height while standing (cm)
-#define X_OFFSET 2.0  // Feet slightly in front of the hip
-#define Y_OFFSET 1.5  // Distance foot to hip
+#define L1 8.4       // Upper Leg Length (cm)
+#define L2 12.2      // Lower Leg Length (cm)
+#define Z_STAND 12.5 // Hip Height while standing (cm)
+#define X_OFFSET 2.0 // Feet slightly in front of the hip
+#define Y_OFFSET 1.5 // Distance foot to hip
 
-//LoRa
+// LoRa
 #define DIO0 D3
 #define NSS D9
 #define frequency 433E6
-int LoRaType = 0; //0 = nothing, 1 = one value, 2 = array with 2 values
+
+int LoRaType = 0; // 0 = nothing, 1 = one value, 2 = array with 2 values
 int LoRaValue = 0;
-int* LoRaArray[2] = {0,0};
-const uint8_t sitL = 0; //Array only have 1 Element: Value
+int *LoRaArray[2] = {0, 0};
+const uint8_t sitL = 0; // Array only have 1 Element: Value
 const uint8_t standL = 1;
 const uint8_t crab = 2;
-const uint8_t LoFLS = 10;//Arrays have 2 Elements: Servo, Value
+const uint8_t LoFLS = 10; // Arrays have 2 Elements: Servo, Value
 const uint8_t LoFLT = 11;
 const uint8_t LoFLB = 12;
 const uint8_t LoFRS = 20;
@@ -87,7 +84,7 @@ const uint8_t isStanding = 69;
 const uint8_t reset = 255;
 
 const uint16_t RECV_PIN = 4;
-//Variables for IR Remote
+// Variables for IR Remote
 int controlmode = 0;
 int selectedServo;
 
@@ -95,18 +92,18 @@ Adafruit_PWMServoDriver servoDriver_module = Adafruit_PWMServoDriver(0x40);
 IRrecv irrecv(RECV_PIN);
 decode_results results;
 Adafruit_MPU6050 mpu;
-//Ultrasonic
+// Ultrasonic
 const int trigPin = D6;
 const int echoPin = D7;
 float duration, distance;
-//current positions
+// current positions
 int cFLS = 0, cFLT = 0, cFLB = 0, cBRS = 0, cBRT = 0, cBRB = 0, cFRS = 0, cFRT = 0, cFRB = 0, cBLS = 0, cBLT = 0, cBLB = 0;
-int* cPositions[13] = {&cFLS, &cFLT, &cFLB, &cBRS, &cBRT, &cBRB,nullptr, &cFRS, &cFRT, &cFRB, &cBLS, &cBLT, &cBLB};
+int *cPositions[13] = {&cFLS, &cFLT, &cFLB, &cBRS, &cBRT, &cBRB, nullptr, &cFRS, &cFRT, &cFRB, &cBLS, &cBLT, &cBLB};
 int nextPos[12] = {cFLS, cFLT, cFLB, cBRS, cBRT, cBRB, cFRS, cFRT, cFRB, cBLS, cBLT, cBLB};
 
-//neutral positions
-const int servoOffsets[13] = {177, 175, 10, 150, 135, 30, -1, 99, 165, 185, 30, 60, 162}; //Offset
-//zweiter offset: default 155
+// neutral positions
+const int servoOffsets[13] = {177, 175, 10, 150, 135, 30, -1, 99, 165, 185, 30, 60, 162}; // Offset
+// zweiter offset: default 155
 const int nFLS = 0;
 const int nFLT = 0;
 const int nFLB = 0;
@@ -119,140 +116,200 @@ const int nFRB = 0;
 const int nBLS = 0;
 const int nBLT = 0;
 const int nBLB = 0;
-const int nPositions[13] = {nFLS, nFLT, nFLB, nBRS, nBRT, nBRB,-1, nFRS, nFRT, nFRB, nBLS, nBLT, nBLB};
+const int nPositions[13] = {nFLS, nFLT, nFLB, nBRS, nBRT, nBRB, -1, nFRS, nFRT, nFRB, nBLS, nBLT, nBLB};
 
-//Standing Positions
+// Standing Positions
 const int sFLS = nFLS;
-const int sFLT = nFLT-30;
-const int sFLB = nFLB+60;
+const int sFLT = nFLT - 30;
+const int sFLB = nFLB + 60;
 const int sBRS = nBRS;
-const int sBRT = nBRT-30;
-const int sBRB = nBRB+60;
+const int sBRT = nBRT - 30;
+const int sBRB = nBRB + 60;
 const int sFRS = nFRS;
-const int sFRT = nFRT+30;
-const int sFRB = nFRB-60;
+const int sFRT = nFRT + 30;
+const int sFRB = nFRB - 60;
 const int sBLS = nBLS;
-const int sBLT = nBLT+30;
-const int sBLB = nBLB-60;
-const int sPositions[13] = {sFLS, sFLT, sFLB, sBRS, sBRT, sBRB,-1, sFRS, sFRT, sFRB, sBLS, sBLT, sBLB};
+const int sBLT = nBLT + 30;
+const int sBLB = nBLB - 60;
+const int sPositions[13] = {sFLS, sFLT, sFLB, sBRS, sBRT, sBRB, -1, sFRS, sFRT, sFRB, sBLS, sBLT, sBLB};
 
-//Bools for postions
-bool sitting = false;
-bool standing = false;
-bool walking = false;
-
-//Gyroscope offset values
+// Gyroscope offset values
 float accelXOffset = 0, accelYOffset = 0, accelZOffset = 0;
 float gyroXOffset = 0, gyroYOffset = 0, gyroZOffset = 0;
 
-//Other variables
+// Other variables
+int task = 0; // provides the task for the robot
 void waitforButton();
 bool paused = false;
 bool singleLeg = true;
+bool sitting = true;
 bool boppingTime = false;
 
-//Position Arrays
+// Position Arrays
 const int sitpos[12] = {nFLS, nFLT, nFLB, nBRS, nBRT, nBRB, nFRS, nFRT, nFRB, nBLS, nBLT, nBLB};
 const int standpos[12] = {sFLS, sFLT, sFLB, sBRS, sBRT, sBRB, sFRS, sFRT, sFRB, sBLS, sBLT, sBLB};
-const int slideright2[12] = {175,90,90,158,109,72,97,191,143,0,95,85};
-const int slideright[12] = {nFLS+20, nFLT-35, nFLB+70, nBRS-2, nBRT-31, nBRB+42, nFRS+2, nFRT+31, nFRB-42, nBLS-15, nBLT+35, nBLB-70};
-//serial monitor input
+const int slideright2[12] = {175, 90, 90, 158, 109, 72, 97, 191, 143, 0, 95, 85};
+const int slideright[12] = {nFLS + 20, nFLT - 35, nFLB + 70, nBRS - 2, nBRT - 31, nBRB + 42, nFRS + 2, nFRT + 31, nFRB - 42, nBLS - 15, nBLT + 35, nBLB - 70};
+// serial monitor input
 char command[10];
 int idx = 0;
 
-void readMacAdress();
-void onDataReceive(const uint8_t * mac, const uint8_t * data, int len);
+void onDataReceive(const uint8_t *mac, const uint8_t *data, int len);
 void checkIR();
 void gyrosetup();
 void gyroread();
 void calibrateGyro();
 
-//LoRa functions
+// LoRa functions
 void LoRa_rxMode();
 void LoRa_txMode();
 void LoRa_sendMessage(String message);
 void onReceive(int packetSize);
 void onTxDone();
-int* stringToIntArray(String str);
+int *stringToIntArray(String str);
 
-//Ultrasonic functions
+// Ultrasonic functions
 float getDistance();
 int distanceMillis;
 bool displayDistance = false;
 bool distanceFlag = false;
 
-void setup() {
+void setup()
+{
   Serial.begin(9600);
   Serial.println("Setup Start");
   servoDriver_module.begin();
-  servoDriver_module.setPWMFreq(50);    //operation frequency of the servos
-  home();
-  irrecv.enableIRIn(); //Infrared Remote
+  servoDriver_module.setPWMFreq(50); // operation frequency of the servos
+  GoTo(sitpos);
+  irrecv.enableIRIn(); // Infrared Remote
   Serial.println("IR enabled");
-  //LoRa Setup
+  // LoRa Setup
   delay(500);
   Serial.println("LoRa Start");
-  LoRa.setPins( NSS , -1 , DIO0 );
+  LoRa.setPins(NSS, -1, DIO0);
   unsigned long startAttemptTime = millis();
-  while (!LoRa.begin(frequency)) {
-    if (millis() - startAttemptTime > 1000) {
+  while (!LoRa.begin(frequency))
+  {
+    if (millis() - startAttemptTime > 1000)
+    {
       Serial.println("LoRa init failed. Check your connections.");
       break;
     }
   }
-  if (millis() - startAttemptTime <= 1000) {
+  if (millis() - startAttemptTime <= 1000)
+  {
     Serial.println("LoRa init succeeded.");
   }
   LoRa.onReceive(onReceive);
   LoRa.onTxDone(onTxDone);
   LoRa_rxMode();
-  //Ultrasonic
+  // Ultrasonic
   pinMode(trigPin, OUTPUT);
   pinMode(echoPin, INPUT);
-  //gyrosetup();
+  // gyrosetup();
 }
 
-void loop() {
+void loop()
+{
   checkIR();
-  //gyroread();
-  if (walking){
-    walkFF();
-  } else if (boppingTime){
-    bop();
-  } 
-  if (displayDistance){
-    distanceMillis = millis();
-    if (distanceMillis % 1000 == 0){
-      distance = getDistance();
-    }  
+  // gyroread();
+  switch (task)
+  {
+  case 0:
+    GoTo(sitpos);
+    sitting = true;
+    break;
+  case 1:
+    setStandingPose();
+    sitting = false;
+    break;
+  case 2:
+    if (!sitting)
+    {
+      walkFF();
+    }
+    break;
+  case 3:
+    if (!sitting)
+    {
+      walkback();
+    }
+    break;
+  case 4:
+    if (!sitting)
+    {
+      sidestepRR();
+    }
+    break;
+  case 5:
+    if (!sitting)
+    {
+      sidestepLL();
+    }
+    break;
+  case 6:
+    if (!sitting)
+    {
+      rotateRR();
+    }
+    break;
+  case 7:
+    if (!sitting)
+    {
+      rotateLL();
+    }
+    break;
+  case 8:
+    if (!sitting)
+    {
+      bop();
+    }
+    break;
+  default:
+    setStandingPose();
+    break;
   }
-    
 
-  //LoRa
-  if (LoRaType == 1){
+  if (displayDistance)
+  {
+    distanceMillis = millis();
+    if (distanceMillis % 1000 == 0)
+    {
+      distance = getDistance();
+    }
+  }
+
+  if (LoRaType == 1)
+  {
     switch (LoRaValue)
     {
     case 0:
       GoTo(sitpos);
       break;
-    case 1: 
-      GoTo(standpos);
+    case 1:
+      setStandingPose();
       break;
+    case 2:
+
     default:
       break;
     }
     LoRaType = 0;
-  } else 
-  if (LoRaType == 2){
+  }
+  else if (LoRaType == 2)
+  {
     setServo(*LoRaArray[0], *LoRaArray[1]);
     LoRaType = 0;
-  } else {}
+  }
+  else
+  {
+  }
 
   if (Serial.available())
   {
     char c = Serial.read();
     if (idx == 10)
-    {                 //Wenn 10 Zeichen in command sind, wird der buffer gelöscht
+    { // Wenn 10 Zeichen in command sind, wird der buffer gelöscht
       idx = 0;
       for (int i = 0; i < 10; i++)
       {
@@ -260,8 +317,8 @@ void loop() {
       }
       Serial.println("Buffer overflow, reset");
     }
-    else if (c == '\n') //Enter
-    { 
+    else if (c == '\n') // Enter
+    {
       setServo(FLB, atoi(command));
       idx = 0;
       for (int i = 0; i < 10; i++)
@@ -270,136 +327,144 @@ void loop() {
       }
     }
     else if (c == '\r')
-    { 
+    {
     }
     else
-    { 
+    {
       command[idx] = c;
       idx++;
     }
   }
-
 }
 
-
-void waitforButton(){
+void waitforButton()
+{
   irrecv.resume();
   paused = true;
   delay(1000);
-  while (paused)(checkIR());
+  while (paused)
+    (checkIR());
 }
 
-void checkIR(){
-  if (irrecv.decode(&results)) {
+void checkIR()
+{
+  if (irrecv.decode(&results))
+  {
     Serial.println(results.value, HEX);
-    switch (results.value){
-      case FBVOLUP:
-        Serial.printf("FLS = %d\n",cFLS);
-        Serial.printf("FLT = %d\n",cFLT);
-        Serial.printf("FLB = %d\n",cFLB);
-        Serial.printf("BRS = %d\n",cBRS);
-        Serial.printf("BRT = %d\n",cBRT);
-        Serial.printf("BRB = %d\n",cBRB);
-        Serial.printf("FRS = %d\n",cFRS);
-        Serial.printf("FRT = %d\n",cFRT);
-        Serial.printf("FRB = %d\n",cFRB);
-        Serial.printf("BLS = %d\n",cBLS);
-        Serial.printf("BLT = %d\n",cBLT);
-        Serial.printf("BLB = %d\n",cBLB);
-        break;
-      case FB1:
-        if(controlmode == 0){
-          rotateLL();
-          } else if(controlmode == 1){
-            selectedServo = FLS;
-            printf("Selected Servo: %d\n", selectedServo);
-          }
-        break;
-      case FB2:
-        if(controlmode == 0){
-          stand();
-        } else if(controlmode == 1){
-          selectedServo = FLT;
-          printf("Selected Servo: %d\n", selectedServo);
-        }
-        break;
-      case FB3:
-        if(controlmode == 0){
-          rotateRR();
-        } else if (controlmode == 1){
-          selectedServo = FLB;
-          printf("Selected Servo: %d\n", selectedServo);
-        }
-        break;
-      case FB4:
-        if(controlmode == 0){
-          walk();
-        } else if (controlmode == 1){
-          selectedServo = BRS;
-          printf("Selected Servo: %d\n", selectedServo);
-        }  
-        break;
-      case FB5:
-        if(controlmode == 0){
-          GoTo(sitpos);
-          sitting = true;
-          standing = false;
-        } else if (controlmode == 1){
-          selectedServo = BRT;
-          printf("Selected Servo: %d\n", selectedServo);
-        }
-        break;
-      case FB6:
-      if(controlmode == 0){
-        walking = !walking;
-      } else if (controlmode ==1){
-          selectedServo = BRB;
-          printf("Selected Servo: %d\n", selectedServo);
-        }
-        break;
-      case FB7:
-        if (controlmode == 0){
-          //Rückwärts laufen
-          moveLeg(FLt,1,0,3);
-          delay(100);
-          moveLeg(BRt,0,0,2);
-          delay(100);
-          moveLeg(BRt,-6,0,2);
-          delay(100);
-          moveLeg(BRt,-6,0,1);
-          moveLeg(FLt,-6,0,1);
-          delay(100);
-          moveLeg(FLt,-6,0,0);
-          
-          standneutral();
-  
-          moveLeg(FRt,1,0,3);
-          delay(100);
-          moveLeg(BLt,0,0,2);
-          delay(100);
-          moveLeg(BLt,-6,0,2);
-          delay(100);
-          moveLeg(BLt,-6,0,1);
-          moveLeg(FRt,-6,0,2);
-          delay(100);
-          moveLeg(FRt,-6,0,0);
-          delay(100);
-          standneutral();
-        } else if (controlmode == 1){
-          selectedServo = FRS;
-          printf("Selected Servo: %d\n", selectedServo);
-        }
-        break;
-      case FB8:
-      if (controlmode == 0){
-        //Dieser Bereich Zum Testen einzelner Bewegungen
-        walking = !walking;
-
-        standneutral();
-
-
-
-
+    switch (results.value)
+    {
+    case FBPOWER:
+      if (task = 0)
+      {
+        task = 1;
+      }
+      else
+      {
+        task = 0;
+      }
+      break;
+    case FBVOLUP:
+      if (controlmode == 0)
+      { // Walking Forward
+        task = 2;
+      }
+      if (controlmode == 1)
+      {
+        Serial.printf("FLS = %d\n", cFLS);
+        Serial.printf("FLT = %d\n", cFLT);
+        Serial.printf("FLB = %d\n", cFLB);
+        Serial.printf("BRS = %d\n", cBRS);
+        Serial.printf("BRT = %d\n", cBRT);
+        Serial.printf("BRB = %d\n", cBRB);
+        Serial.printf("FRS = %d\n", cFRS);
+        Serial.printf("FRT = %d\n", cFRT);
+        Serial.printf("FRB = %d\n", cFRB);
+        Serial.printf("BLS = %d\n", cBLS);
+        Serial.printf("BLT = %d\n", cBLT);
+        Serial.printf("BLB = %d\n", cBLB);
+      }
+      break;
+    case FBVOLDOWN:
+      if (controlmode == 0)
+      { // Walking Backward
+        task = 3;
+      }
+      break;
+    case FB1:
+      if (controlmode == 0)
+      {
+      }
+      else if (controlmode == 1)
+      {
+        selectedServo = FLS;
+        printf("Selected Servo: %d\n", selectedServo);
+      }
+      break;
+    case FB2:
+      if (controlmode == 0)
+      {
+      }
+      else if (controlmode == 1)
+      {
+        selectedServo = FLT;
+        printf("Selected Servo: %d\n", selectedServo);
+      }
+      break;
+    case FB3:
+      if (controlmode == 0)
+      {
+      }
+      else if (controlmode == 1)
+      {
+        selectedServo = FLB;
+        printf("Selected Servo: %d\n", selectedServo);
+      }
+      break;
+    case FB4:
+      if (controlmode == 0)
+      {
+      }
+      else if (controlmode == 1)
+      {
+        selectedServo = BRS;
+        printf("Selected Servo: %d\n", selectedServo);
+      }
+      break;
+    case FB5:
+      if (controlmode == 0)
+      {
+      }
+      else if (controlmode == 1)
+      {
+        selectedServo = BRT;
+        printf("Selected Servo: %d\n", selectedServo);
+      }
+      break;
+    case FB6:
+      if (controlmode == 0)
+      {
+      }
+      else if (controlmode == 1)
+      {
+        selectedServo = BRB;
+        printf("Selected Servo: %d\n", selectedServo);
+      }
+      break;
+    case FB7:
+      if (controlmode == 0)
+      {
+      }
+      else if (controlmode == 1)
+      {
+        selectedServo = FRS;
+        printf("Selected Servo: %d\n", selectedServo);
+      }
+      break;
+    case FB8:
+      if (controlmode == 0)
+      {
+        // Dieser Bereich Zum Testen einzelner Bewegungen
+        //! Alte halbwegs funktionale Laufen-Funktion
         // moveLeg(BRt,-1,0,3);
         // delay(100);
         // moveLeg(FLt,0,0,4);
@@ -423,88 +488,119 @@ void checkIR(){
         // moveLeg(BLt,6,0,0);
         // delay(100);
         // standneutral();
-      } else
-        if (controlmode == 1){
-          selectedServo = FRT;
-          printf("Selected Servo: %d\n", selectedServo);
-        }
-        break;
-      case FB9:
-        if (controlmode == 0){
-          setStandingPose();
-        } else
-        if (controlmode == 1){
-          selectedServo = FRB;
-          printf("Selected Servo: %d\n", selectedServo);
-        }
-        break;
-      case FB0:
-        if (controlmode == 1){
-          selectedServo = BLS;
-          printf("Selected Servo: %d\n", selectedServo);
-        }
-        break;
-      case FBEQ:
-        if (controlmode == 0){
-          displayDistance = !displayDistance;
-        }
-        if (controlmode == 1){
-          selectedServo = BLT;
-          printf("Selected Servo: %d\n", selectedServo);
-        }
-        break;
-      case FBREPT:
-        if (controlmode == 0){
-          LoRa_sendMessage("69");
-        } else
-        if (controlmode == 1){
-          selectedServo = BLB;
-          printf("Selected Servo: %d\n", selectedServo);
-        }
-        break;
-      case FBUP:
-        if(controlmode == 0){
-          setServoTB(5);
-          Serial.println("FBUP");
-        } else if(controlmode ==1){
-          moveServo(selectedServo, 1);
-        }
-        break;
-      case FBDOWN:
-        if(controlmode == 0){
-          setServoTB(-5);
-          Serial.println("FBDOWN");
-        } else if(controlmode == 1){
-          moveServo(selectedServo, -1);
-        }
-        break;
-      case FBFUNC:
-        if(controlmode == 0){
-          controlmode = 1;
-          Serial.println("Controlmode: 1");
-        }else{
-          controlmode = 0;
-          Serial.println("Controlmode: 0");
-        }
-        break;
-      case FBPLAY:
+      }
+      else if (controlmode == 1)
+      {
+        selectedServo = FRT;
+        printf("Selected Servo: %d\n", selectedServo);
+      }
+      break;
+    case FB9:
+      if (controlmode == 0)
+      {
         paused = false;
-        break;
-      case FBRIGHT:
-        sidestepRR();
-        break;
-      case FBLEFT:
-        sidestepLL();
-        break;
-      default:
-        Serial.println("Unknown");
-        break;
+      }
+      else if (controlmode == 1)
+      {
+        selectedServo = FRB;
+        printf("Selected Servo: %d\n", selectedServo);
+      }
+      break;
+    case FB0:
+      if (controlmode == 0)
+      {
+        Serial.printf("FLS = %d\n", cFLS);
+        Serial.printf("FLT = %d\n", cFLT);
+        Serial.printf("FLB = %d\n", cFLB);
+        Serial.printf("BRS = %d\n", cBRS);
+        Serial.printf("BRT = %d\n", cBRT);
+        Serial.printf("BRB = %d\n", cBRB);
+        Serial.printf("FRS = %d\n", cFRS);
+        Serial.printf("FRT = %d\n", cFRT);
+        Serial.printf("FRB = %d\n", cFRB);
+        Serial.printf("BLS = %d\n", cBLS);
+        Serial.printf("BLT = %d\n", cBLT);
+        Serial.printf("BLB = %d\n", cBLB);
+      }
+      else if (controlmode == 1)
+      {
+        selectedServo = BLS;
+        printf("Selected Servo: %d\n", selectedServo);
+      }
+      break;
+    case FBEQ:
+      if (controlmode == 0)
+      {
+        displayDistance = !displayDistance;
+      }
+      if (controlmode == 1)
+      {
+        selectedServo = BLT;
+        printf("Selected Servo: %d\n", selectedServo);
+      }
+      break;
+    case FBREPT:
+      if (controlmode == 0)
+      {
+        LoRa_sendMessage("69");
+      }
+      else if (controlmode == 1)
+      {
+        selectedServo = BLB;
+        printf("Selected Servo: %d\n", selectedServo);
+      }
+      break;
+    case FBUP:
+      if (controlmode == 0)
+      {
+        task = 6;
+        Serial.println("FBUP");
+      }
+      else if (controlmode == 1)
+      {
+        moveServo(selectedServo, 1);
+      }
+      break;
+    case FBDOWN:
+      if (controlmode == 0)
+      {
+        task = 7;
+        Serial.println("FBDOWN");
+      }
+      else if (controlmode == 1)
+      {
+        moveServo(selectedServo, -1);
+      }
+      break;
+    case FBFUNC:
+      if (controlmode == 0)
+      {
+        controlmode = 1;
+        Serial.println("Controlmode: 1");
+      }
+      else
+      {
+        controlmode = 0;
+        Serial.println("Controlmode: 0");
+      }
+      break;
+    case FBPLAY:
+      task = 1;
+      break;
+    case FBRIGHT:
+      task = 4;
+      break;
+    case FBLEFT:
+      task = 5;
+      break;
+    default:
+      Serial.println("Unknown");
+      break;
     }
 
     irrecv.resume();
   }
 }
-
 
 /*void gyrosetup(){
   int breakcounter = 0;
@@ -609,7 +705,7 @@ void checkIR(){
 }
 
 void calibrateGyro(){
-  
+
   const int numReadings = 1000;
   float accelXSum = 0, accelYSum = 0, accelZSum = 0;
   float gyroXSum = 0, gyroYSum = 0, gyroZSum = 0;
@@ -640,114 +736,127 @@ void calibrateGyro(){
   Serial.print("Gyro Offsets: "); Serial.print(gyroXOffset); Serial.print(", "); Serial.print(gyroYOffset); Serial.print(", "); Serial.println(gyroZOffset);
 }*/
 
-
-void LoRa_rxMode(){
+void LoRa_rxMode()
+{
   Serial.println("LoRa_rxMode");
-  LoRa.enableInvertIQ();                // active invert I and Q signals
-  LoRa.receive();                       // set receive mode
+  LoRa.enableInvertIQ(); // active invert I and Q signals
+  LoRa.receive();        // set receive mode
 }
- 
-void LoRa_txMode(){
+
+void LoRa_txMode()
+{
   Serial.println("LoRa_txMode");
-  LoRa.idle();  
-  Serial.println("idle done");          // set standby mode;
-  LoRa.disableInvertIQ();              // normal mode
+  LoRa.idle();
+  Serial.println("idle done"); // set standby mode;
+  LoRa.disableInvertIQ();      // normal mode
   Serial.println("disableInvertIQ done");
 }
- 
-void LoRa_sendMessage(String message) {
-  LoRa_txMode();                       // set tx mode
+
+void LoRa_sendMessage(String message)
+{
+  LoRa_txMode(); // set tx mode
   Serial.println("Begin message");
-  LoRa.beginPacket();                   // start packet
+  LoRa.beginPacket(); // start packet
   Serial.println("Begin packet done");
-  LoRa.print(message);                  // add payload
+  LoRa.print(message); // add payload
   Serial.println("Print done");
-  LoRa.endPacket(false);                 // finish packet and send it
+  LoRa.endPacket(false); // finish packet and send it
   Serial.println("End packet done");
 }
 
-void onReceive(int packetSize) {
+void onReceive(int packetSize)
+{
   String message = "";
- 
-  while (LoRa.available()) {
+
+  while (LoRa.available())
+  {
     message += (char)LoRa.read();
   }
 
   Serial.print("Node Receive: ");
   Serial.println(message);
-  if (sizeof(message) == 1){
+  if (sizeof(message) == 1)
+  {
     LoRaValue = message.toInt();
     LoRaType = 1;
-  } else if (sizeof(message) == 2){
-    int* LoRaArray = stringToIntArray(message);
-    switch (LoRaArray[0]){
-      case LoFLS:
-        LoRaArray[0] = FLS;
-        break;
-      case LoFLT:
-        LoRaArray[0] = FLT;
-        break;
-      case LoFLB:
-        LoRaArray[0] = FLB;
-        break;
-      case LoFRS:
-        LoRaArray[0] = FRS;
-        break;
-      case LoFRT:
-        LoRaArray[0] = FRT;
-        break;
-      case LoFRB:
-        LoRaArray[0] = FRB;
-        break;
-      case LoBRS:
-        LoRaArray[0] = BRS;
-        break;
-      case LoBRT:
-        LoRaArray[0] = BRT;
-        break;
-      case LoBRB:
-        LoRaArray[0] = BRB;
-        break;
-      case LoBLS:
-        LoRaArray[0] = BLS;
-        break;
-      case LoBLT:
-        LoRaArray[0] = BLT;
-        break;
-      case LoBLB:
-        LoRaArray[0] = BLB;
-        break;
+  }
+  else if (sizeof(message) == 2)
+  {
+    int *LoRaArray = stringToIntArray(message);
+    switch (LoRaArray[0])
+    {
+    case LoFLS:
+      LoRaArray[0] = FLS;
+      break;
+    case LoFLT:
+      LoRaArray[0] = FLT;
+      break;
+    case LoFLB:
+      LoRaArray[0] = FLB;
+      break;
+    case LoFRS:
+      LoRaArray[0] = FRS;
+      break;
+    case LoFRT:
+      LoRaArray[0] = FRT;
+      break;
+    case LoFRB:
+      LoRaArray[0] = FRB;
+      break;
+    case LoBRS:
+      LoRaArray[0] = BRS;
+      break;
+    case LoBRT:
+      LoRaArray[0] = BRT;
+      break;
+    case LoBRB:
+      LoRaArray[0] = BRB;
+      break;
+    case LoBLS:
+      LoRaArray[0] = BLS;
+      break;
+    case LoBLT:
+      LoRaArray[0] = BLT;
+      break;
+    case LoBLB:
+      LoRaArray[0] = BLB;
+      break;
     }
     LoRaType = 2;
-  } else {
+  }
+  else
+  {
     LoRaType = 0;
   }
 }
- 
-void onTxDone() {
+
+void onTxDone()
+{
   Serial.println("TxDone");
   LoRa_rxMode();
 }
 
-int* stringToIntArray(String str)
+int *stringToIntArray(String str)
 {
   // Convert the string back to an integer array
   int startIndex = 0;
   int endIndex = str.indexOf(',');
-  int* intArray = new int[2];
+  int *intArray = new int[2];
   int arrayIndex = 0;
- 
-  while (endIndex != -1) {
+
+  while (endIndex != -1)
+  {
     intArray[arrayIndex++] = str.substring(startIndex, endIndex).toInt();
     startIndex = endIndex + 2; // Move past the comma and space
     endIndex = str.indexOf(',', startIndex);
   }
   intArray[arrayIndex] = str.substring(startIndex).toInt(); // Add the last number
- 
+
   return intArray;
 }
 
-float getDistance(){
+float getDistance()
+{
   digitalWrite(trigPin, LOW);
   delayMicroseconds(2);
   digitalWrite(trigPin, HIGH);
@@ -757,9 +866,12 @@ float getDistance(){
   float distanceFnct = duration * 0.034 / 2;
   Serial.print("Distance: ");
   Serial.println(distanceFnct);
-  if (distanceFnct < 10){
+  if (distanceFnct < 10)
+  {
     distanceFlag = true;
-  } else {
+  }
+  else
+  {
     distanceFlag = false;
   }
   return distanceFnct;

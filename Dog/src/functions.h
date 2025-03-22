@@ -4,15 +4,13 @@
 #include <Arduino.h>
 #include <Adafruit_PWMServoDriver.h>
 #include <SPI.h>
-#include <esp_now.h>
-#include <WiFi.h>
 #include <Wire.h>
-#include <esp_wifi.h>
 #include <IRremoteESP8266.h>
 #include <IRrecv.h>
 #include <IRutils.h>
 #include <Adafruit_Sensor.h>
 #include <Adafruit_MPU6050.h>
+#include <LoRa.h>
 
 extern int angleToPulse(int ang);
 void home();                     // Startup Position
@@ -54,9 +52,6 @@ extern const int standpos[12];
 extern const int slideright[12];
 extern int* cPositions[13];
 extern int nextPos[12];
-extern bool walking;
-extern bool sitting;
-extern bool standing;
 extern int selectedServo;
 extern bool singleLeg;
 extern bool boppingTime;
