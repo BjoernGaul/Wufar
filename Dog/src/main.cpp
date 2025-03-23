@@ -23,6 +23,7 @@
 #define BLS 10
 #define BLT 11
 #define BLB 12
+// Leg IDs
 #define FLt 0
 #define BRt 1
 #define FRt 2
@@ -65,9 +66,17 @@
 int LoRaType = 0; // 0 = nothing, 1 = one value, 2 = array with 2 values
 int LoRaValue = 0;
 int *LoRaArray[2] = {0, 0};
-const uint8_t sitL = 0; // Array only have 1 Element: Value
-const uint8_t standL = 1;
-const uint8_t crab = 2;
+int LoRaGetAngle;
+int LoRaSendAngle;
+const uint8_t LoSit = 1; // Array only have 1 Element: Value
+const uint8_t LoStand = 2;
+const uint8_t LoWalkF = 3;
+const uint8_t LoWalkB = 4;
+const uint8_t LoCrabR = 5;
+const uint8_t LoCrabL = 6;
+const uint8_t LoRotR = 7;
+const uint8_t LoRotL = 8;
+const uint8_t LoBop = 9;
 const uint8_t LoFLS = 10; // Arrays have 2 Elements: Servo, Value
 const uint8_t LoFLT = 11;
 const uint8_t LoFLB = 12;
@@ -80,7 +89,7 @@ const uint8_t LoBRB = 32;
 const uint8_t LoBLS = 40;
 const uint8_t LoBLT = 41;
 const uint8_t LoBLB = 42;
-const uint8_t isStanding = 69;
+const uint8_t LoIsSitting = 69;
 const uint8_t reset = 255;
 
 const uint16_t RECV_PIN = 4;
@@ -216,54 +225,61 @@ void loop()
   switch (task)
   {
   case 0:
-    GoTo(sitpos);
-    sitting = true;
     break;
   case 1:
-    setStandingPose();
-    sitting = false;
+    GoTo(sitpos);
+    sitting = true;
+    task = 0;
     break;
   case 2:
+    setStandingPose();
+    sitting = false;
+    task = 0;
+    break;
+  case 3:
     if (!sitting)
     {
       walkFF();
     }
     break;
-  case 3:
+  case 4:
     if (!sitting)
     {
       walkback();
     }
     break;
-  case 4:
+  case 5:
     if (!sitting)
     {
       sidestepRR();
     }
     break;
-  case 5:
+  case 6:
     if (!sitting)
     {
       sidestepLL();
     }
     break;
-  case 6:
+  case 7:
     if (!sitting)
     {
       rotateRR();
     }
     break;
-  case 7:
+  case 8:
     if (!sitting)
     {
       rotateLL();
     }
     break;
-  case 8:
+  case 9:
     if (!sitting)
     {
       bop();
     }
+  case 10:
+    setServo(*LoRaArray[0], *LoRaArray[1]);
+    task = 0;
     break;
   default:
     setStandingPose();
@@ -272,6 +288,8 @@ void loop()
 
   if (displayDistance)
   {
+    String message = String(5) + "," + String(distance);
+    LoRa_sendMessage(message);
     distanceMillis = millis();
     if (distanceMillis % 1000 == 0)
     {
@@ -354,19 +372,19 @@ void checkIR()
     switch (results.value)
     {
     case FBPOWER:
-      if (task = 0)
+      if (task = 1)
       {
-        task = 1;
+        task = 2;
       }
       else
       {
-        task = 0;
+        task = 1;
       }
       break;
     case FBVOLUP:
       if (controlmode == 0)
       { // Walking Forward
-        task = 2;
+        task = 3;
       }
       if (controlmode == 1)
       {
@@ -387,7 +405,7 @@ void checkIR()
     case FBVOLDOWN:
       if (controlmode == 0)
       { // Walking Backward
-        task = 3;
+        task = 4;
       }
       break;
     case FB1:
@@ -553,7 +571,7 @@ void checkIR()
     case FBUP:
       if (controlmode == 0)
       {
-        task = 6;
+        task = 7;
         Serial.println("FBUP");
       }
       else if (controlmode == 1)
@@ -564,7 +582,7 @@ void checkIR()
     case FBDOWN:
       if (controlmode == 0)
       {
-        task = 7;
+        task = 8;
         Serial.println("FBDOWN");
       }
       else if (controlmode == 1)
@@ -585,13 +603,13 @@ void checkIR()
       }
       break;
     case FBPLAY:
-      task = 1;
+      task = 2;
       break;
     case FBRIGHT:
-      task = 4;
+      task = 5;
       break;
     case FBLEFT:
-      task = 5;
+      task = 6;
       break;
     default:
       Serial.println("Unknown");
@@ -778,10 +796,74 @@ void onReceive(int packetSize)
   if (sizeof(message) == 1)
   {
     LoRaValue = message.toInt();
-    LoRaType = 1;
+    LoRaType = 1; //! Lora Type durch task ersetzen
+    // task = LoRaValue;
+    if (LoRaValue == LoIsSitting)
+    {
+      LoRa_sendMessage(String(sitting));
+    }
+    else
+    if (LoRaValue <= 2)
+    {
+      task = LoRaValue;
+    }
+    else if (2 < LoRaValue < 10)
+    {               // Movements
+      if (!sitting) //? Evtl überflüssig, da das schon im switch case steht
+      {             //* Oder auch nicht, weil sonst in der neutralen position der robo aufsteht
+        task = LoRaValue;
+      }
+      else
+      { // Do nothing because we're sitting
+      }
+    }
+    else if (10 <= LoRaValue < 50)
+    {
+      switch (LoRaValue)
+      {
+      case LoFLS:
+        LoRaGetAngle = cFLS;
+        break;
+      case LoFLT:
+        LoRaGetAngle = cFLT;
+        break;
+      case LoFLB:
+        LoRaGetAngle = cFLB;
+        break;
+      case LoFRS:
+        LoRaGetAngle = cFRS;
+        break;
+      case LoFRT:
+        LoRaGetAngle = cFRT;
+        break;
+      case LoFRB:
+        LoRaGetAngle = cFRB;
+        break;
+      case LoBRS:
+        LoRaGetAngle = cBRS;
+        break;
+      case LoBRT:
+        LoRaGetAngle = cBRT;
+        break;
+      case LoBRB:
+        LoRaGetAngle = cBRB;
+        break;
+      case LoBLS:
+        LoRaGetAngle = cBLS;
+        break;
+      case LoBLT:
+        LoRaGetAngle = cBLT;
+        break;
+      case LoBLB:
+        LoRaGetAngle = cBLB;
+        break;
+      }
+      LoRa_sendMessage(String(LoRaGetAngle));
+    }
   }
   else if (sizeof(message) == 2)
   {
+    task = 10;
     int *LoRaArray = stringToIntArray(message);
     switch (LoRaArray[0])
     {
@@ -822,6 +904,7 @@ void onReceive(int packetSize)
       LoRaArray[0] = BLB;
       break;
     }
+    LoRa_sendMessage(String(LoRaSendAngle));
     LoRaType = 2;
   }
   else
