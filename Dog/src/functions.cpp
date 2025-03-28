@@ -18,12 +18,12 @@ extern Adafruit_PWMServoDriver servoDriver_module;
 #define BRS 3
 #define BRT 4
 #define BRB 5
-#define FRS 7
-#define FRT 8
-#define FRB 9
-#define BLS 10
-#define BLT 11
-#define BLB 12
+#define FRS 6
+#define FRT 7
+#define FRB 8
+#define BLS 9
+#define BLT 10
+#define BLB 11
 #define FLt 0
 #define BRt 1
 #define FRt 2
@@ -45,11 +45,6 @@ int angleToPulse(int ang)
 
 void setServo(int motor, int angle)
 {
-  if (motor == 6)
-  {
-    Serial.println("Invalid servo number");
-    return;
-  }
   int adjustedAngle = angle + servoOffsets[motor];
   servoDriver_module.setPWM(motor, 0, angleToPulse(adjustedAngle));
   *cPositions[motor] = angle;
@@ -296,11 +291,6 @@ void GoTo(const int targetPositions[12])
 
 void setServoSlow(int motor, int angle, int stepsize)
 {
-  if (motor == 6)
-  {
-    Serial.println("Invalid servo number");
-    return;
-  }
   int currmotor = *cPositions[motor];
   if (currmotor < angle)
   {
@@ -356,11 +346,6 @@ void setServoTB(int GoUp)
 
 void moveServo(int selectedServo, int updown)
 {
-  if (selectedServo == 6)
-  {
-    Serial.println("Invalid servo number");
-    return;
-  }
   int step = 5 * updown;
   setServo(selectedServo, *cPositions[selectedServo] + step);
 }
@@ -518,7 +503,7 @@ void computeIK(int legID, float x, float y, float z, float &theta1, float &theta
 }
 
 // Servo-Mapping (Pin-Number skip 6)
-int servoMap[12] = {0, 1, 2, 3, 4, 5, 7, 8, 9, 10, 11, 12};
+// int servoMap[12] = {0, 1, 2, 3, 4, 5, 7, 8, 9, 10, 11, 12};
 
 // general Function to move a leg in a local coordinate system
 void moveLegGeneralFunc(int legID, float x, float y, float z, int stepsize)
@@ -527,7 +512,7 @@ void moveLegGeneralFunc(int legID, float x, float y, float z, int stepsize)
   {
     for (int i = 0; i < 12; i++)
     {
-      nextPos[i] = *cPositions[servoMap[i]];
+      nextPos[i] = *cPositions[i];
     }
   }
   float theta1, theta2, theta3;
@@ -563,15 +548,15 @@ void moveLegGeneralFunc(int legID, float x, float y, float z, int stepsize)
   {//Set to false to save all new positions first in order to execute them at the same time
     if (stepsize > 0)
     {
-      setServoSlow(servoMap[legID * 3], currentTheta1[legID] + deltaTheta1, stepsize);
-      setServoSlow(servoMap[legID * 3 + 1], currentTheta2[legID] + deltaTheta2, stepsize);
-      setServoSlow(servoMap[legID * 3 + 2], currentTheta3[legID] + deltaTheta3, stepsize);
+      setServoSlow(legID * 3, currentTheta1[legID] + deltaTheta1, stepsize);
+      setServoSlow(legID * 3 + 1, currentTheta2[legID] + deltaTheta2, stepsize);
+      setServoSlow(legID * 3 + 2, currentTheta3[legID] + deltaTheta3, stepsize);
     }
     else
     {
-      setServo(servoMap[legID * 3], currentTheta1[legID] + deltaTheta1);
-      setServo(servoMap[legID * 3 + 1], currentTheta2[legID] + deltaTheta2);
-      setServo(servoMap[legID * 3 + 2], currentTheta3[legID] + deltaTheta3);
+      setServo(legID * 3, currentTheta1[legID] + deltaTheta1);
+      setServo(legID * 3 + 1, currentTheta2[legID] + deltaTheta2);
+      setServo(legID * 3 + 2, currentTheta3[legID] + deltaTheta3);
     }
   }
 }
@@ -599,7 +584,7 @@ void setStandingPose()
   singleLeg = false;
   for (int i = 0; i < 12; i++)
   {
-    nextPos[i] = *cPositions[servoMap[i]];
+    nextPos[i] = *cPositions[i];
   }
   moveLegGeneralFunc(0, X_OFFSET, Y_OFFSET, Z_STAND);
   moveLegGeneralFunc(1, X_OFFSET, Y_OFFSET, Z_STAND);
@@ -726,7 +711,7 @@ void rotateRR()
   singleLeg = false;
   for (int i = 0; i < 12; i++)
   {
-    nextPos[i] = *cPositions[servoMap[i]];
+    nextPos[i] = *cPositions[i];
   }
   moveLeg(FRt, 0, -6, 6);
   moveLeg(BLt, 0, -6, 6);
@@ -768,7 +753,7 @@ void rotateLL()
   singleLeg = false;
   for (int i = 0; i < 12; i++)
   {
-    nextPos[i] = *cPositions[servoMap[i]];
+    nextPos[i] = *cPositions[i];
   }
   moveLeg(FLt, 0, -6, 6);
   moveLeg(BRt, 0, -6, 6);
@@ -834,19 +819,19 @@ void bop()
   singleLeg = false;
   for (int i = 0; i < 12; i++)
   {
-    nextPos[i] = *cPositions[servoMap[i]];
+    nextPos[i] = *cPositions[i];
   }
-  moveLeg(FLt, 0, 0, 6);
-  moveLeg(BRt, 0, 0, 6);
-  moveLeg(FRt, 0, 0, 6);
-  moveLeg(BLt, 0, 0, 6);
+  moveLeg(FLt, 0, 0, 5);
+  moveLeg(BRt, 0, 0, 5);
+  moveLeg(FRt, 0, 0, 5);
+  moveLeg(BLt, 0, 0, 5);
   GoTo(nextPos);
   singleLeg = true;
-  delay(700);
+  delay(300);
   singleLeg = false;
   for (int i = 0; i < 12; i++)
   {
-    nextPos[i] = *cPositions[servoMap[i]];
+    nextPos[i] = *cPositions[i];
   }
   moveLeg(FLt, 0, 0, -4);
   moveLeg(BRt, 0, 0, -4);
@@ -854,5 +839,5 @@ void bop()
   moveLeg(BLt, 0, 0, -4);
   GoTo(nextPos);
   singleLeg = true;
-  delay(700);
+  delay(300);
 }

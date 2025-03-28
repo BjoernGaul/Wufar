@@ -17,12 +17,12 @@
 #define BRS 3
 #define BRT 4
 #define BRB 5
-#define FRS 7
-#define FRT 8
-#define FRB 9
-#define BLS 10
-#define BLT 11
-#define BLB 12
+#define FRS 6
+#define FRT 7
+#define FRB 8
+#define BLS 9
+#define BLT 10
+#define BLB 11
 // Leg IDs
 #define FLt 0
 #define BRt 1
@@ -63,11 +63,16 @@
 #define NSS D9
 #define frequency 433E6
 
-int LoRaType = 0; // 0 = nothing, 1 = one value, 2 = array with 2 values
+int LoRaType = 0; 
 int LoRaValue = 0;
+int LoRaServo = 0; // Servo ID
 int *LoRaArray[2] = {0, 0};
 int LoRaGetAngle;
 int LoRaSendAngle;
+const uint8_t joyRight = 100;
+const uint8_t joyLeft  =101;
+const uint8_t LoDistance = 200;
+const uint8_t LoGetPosLegs = 250;
 const uint8_t LoSit = 1; // Array only have 1 Element: Value
 const uint8_t LoStand = 2;
 const uint8_t LoWalkF = 3;
@@ -107,11 +112,11 @@ const int echoPin = D7;
 float duration, distance;
 // current positions
 int cFLS = 0, cFLT = 0, cFLB = 0, cBRS = 0, cBRT = 0, cBRB = 0, cFRS = 0, cFRT = 0, cFRB = 0, cBLS = 0, cBLT = 0, cBLB = 0;
-int *cPositions[13] = {&cFLS, &cFLT, &cFLB, &cBRS, &cBRT, &cBRB, nullptr, &cFRS, &cFRT, &cFRB, &cBLS, &cBLT, &cBLB};
+int *cPositions[12] = {&cFLS, &cFLT, &cFLB, &cBRS, &cBRT, &cBRB, &cFRS, &cFRT, &cFRB, &cBLS, &cBLT, &cBLB};
 int nextPos[12] = {cFLS, cFLT, cFLB, cBRS, cBRT, cBRB, cFRS, cFRT, cFRB, cBLS, cBLT, cBLB};
 
 // neutral positions
-const int servoOffsets[13] = {177, 175, 10, 150, 135, 30, -1, 99, 165, 185, 30, 60, 162}; // Offset
+const int servoOffsets[12] = {97, 160, 5, 150, 140, 35, 94, 165, 185, 28, 55, 162}; // Offset
 // zweiter offset: default 155
 const int nFLS = 0;
 const int nFLT = 0;
@@ -125,7 +130,7 @@ const int nFRB = 0;
 const int nBLS = 0;
 const int nBLT = 0;
 const int nBLB = 0;
-const int nPositions[13] = {nFLS, nFLT, nFLB, nBRS, nBRT, nBRB, -1, nFRS, nFRT, nFRB, nBLS, nBLT, nBLB};
+const int nPositions[12] = {nFLS, nFLT, nFLB, nBRS, nBRT, nBRB, nFRS, nFRT, nFRB, nBLS, nBLT, nBLB};
 
 // Standing Positions
 const int sFLS = nFLS;
@@ -140,7 +145,7 @@ const int sFRB = nFRB - 60;
 const int sBLS = nBLS;
 const int sBLT = nBLT + 30;
 const int sBLB = nBLB - 60;
-const int sPositions[13] = {sFLS, sFLT, sFLB, sBRS, sBRT, sBRB, -1, sFRS, sFRT, sFRB, sBLS, sBLT, sBLB};
+const int sPositions[12] = {sFLS, sFLT, sFLB, sBRS, sBRT, sBRB, sFRS, sFRT, sFRB, sBLS, sBLT, sBLB};
 
 // Gyroscope offset values
 float accelXOffset = 0, accelYOffset = 0, accelZOffset = 0;
@@ -197,31 +202,37 @@ void setup()
   Serial.println("LoRa Start");
   LoRa.setPins(NSS, -1, DIO0);
   unsigned long startAttemptTime = millis();
-  while (!LoRa.begin(frequency))
-  {
-    if (millis() - startAttemptTime > 1000)
-    {
-      Serial.println("LoRa init failed. Check your connections.");
-      break;
-    }
-  }
-  if (millis() - startAttemptTime <= 1000)
-  {
-    Serial.println("LoRa init succeeded.");
-  }
-  LoRa.onReceive(onReceive);
-  LoRa.onTxDone(onTxDone);
-  LoRa_rxMode();
-  // Ultrasonic
+  // while (!LoRa.begin(frequency))
+  // {
+  //   if (millis() - startAttemptTime > 1000)
+  //   {
+  //     Serial.println("LoRa init failed. Check your connections.");
+  //     break;
+  //   }
+  // }
+  // if (millis() - startAttemptTime <= 1000)
+  // {
+  //   Serial.println("LoRa init succeeded.");
+  // }
+
+  // Alt
+  //  LoRa.onReceive(onReceive);
+  //  LoRa.onTxDone(onTxDone);
+  //  LoRa_rxMode();
+  //  Ultrasonic
   pinMode(trigPin, OUTPUT);
   pinMode(echoPin, INPUT);
   // gyrosetup();
 }
 
-void loop()
-{
-  checkIR();
+void loop(){
+ checkIR();
+  // onReceive(LoRa.parsePacket());
   // gyroread();
+
+
+  
+
   switch (task)
   {
   case 0:
@@ -277,6 +288,7 @@ void loop()
     {
       bop();
     }
+    break;
   case 10:
     setServo(*LoRaArray[0], *LoRaArray[1]);
     task = 0;
@@ -288,40 +300,17 @@ void loop()
 
   if (displayDistance)
   {
-    String message = String(5) + "," + String(distance);
-    LoRa_sendMessage(message);
+
     distanceMillis = millis();
     if (distanceMillis % 1000 == 0)
     {
       distance = getDistance();
+      String message = String(200) + "," + String(distance);
+      LoRa_sendMessage(message);
     }
   }
 
-  if (LoRaType == 1)
-  {
-    switch (LoRaValue)
-    {
-    case 0:
-      GoTo(sitpos);
-      break;
-    case 1:
-      setStandingPose();
-      break;
-    case 2:
 
-    default:
-      break;
-    }
-    LoRaType = 0;
-  }
-  else if (LoRaType == 2)
-  {
-    setServo(*LoRaArray[0], *LoRaArray[1]);
-    LoRaType = 0;
-  }
-  else
-  {
-  }
 
   if (Serial.available())
   {
@@ -337,6 +326,7 @@ void loop()
     }
     else if (c == '\n') // Enter
     {
+      Serial.printf("Command: %s\n", command);
       setServo(FLB, atoi(command));
       idx = 0;
       for (int i = 0; i < 10; i++)
@@ -372,7 +362,7 @@ void checkIR()
     switch (results.value)
     {
     case FBPOWER:
-      if (task = 1)
+      if (sitting)
       {
         task = 2;
       }
@@ -480,32 +470,8 @@ void checkIR()
       break;
     case FB8:
       if (controlmode == 0)
-      {
-        // Dieser Bereich Zum Testen einzelner Bewegungen
-        //! Alte halbwegs funktionale Laufen-Funktion
-        // moveLeg(BRt,-1,0,3);
-        // delay(100);
-        // moveLeg(FLt,0,0,4);
-        // delay(100);
-        // moveLeg(FLt,6,0,4);
-        // delay(100);
-        // moveLeg(FLt,6,0,1);
-        // moveLeg(BRt,6,0,1);
-        // delay(100);
-        // moveLeg(BRt,6,0,0);
-        // standneutral();
-        // moveLeg(BLt,-1,0,3);
-        // delay(100);
-        // moveLeg(FRt,0,0,4);
-        // delay(100);
-        // moveLeg(FRt,6,0,4);
-        // delay(100);
-        // moveLeg(FRt,6,0,1);
-        // moveLeg(BLt,6,0,1);
-        // delay(100);
-        // moveLeg(BLt,6,0,0);
-        // delay(100);
-        // standneutral();
+      {//Bopping
+        task = 9;
       }
       else if (controlmode == 1)
       {
@@ -772,18 +738,20 @@ void LoRa_txMode()
 
 void LoRa_sendMessage(String message)
 {
-  LoRa_txMode(); // set tx mode
+
   Serial.println("Begin message");
   LoRa.beginPacket(); // start packet
-  Serial.println("Begin packet done");
-  LoRa.print(message); // add payload
-  Serial.println("Print done");
-  LoRa.endPacket(false); // finish packet and send it
-  Serial.println("End packet done");
+  LoRa.write(message.length());
+  LoRa.print(message);
+  LoRa.endPacket();
 }
 
 void onReceive(int packetSize)
 {
+  if (packetSize == 0)
+    return;
+  byte incomingLength = LoRa.read(); // incoming msg length
+
   String message = "";
 
   while (LoRa.available())
@@ -791,121 +759,91 @@ void onReceive(int packetSize)
     message += (char)LoRa.read();
   }
 
-  Serial.print("Node Receive: ");
-  Serial.println(message);
+  if (incomingLength != message.length())
+  { // check length for error
+    Serial.println("error: message length does not match length");
+    return; // skip rest of function
+  }
+
+  Serial.println("Message length: " + String(incomingLength));
+  Serial.println("Message: " + message);
+  Serial.println();
+  stringToIntArray(message);
+
+
   if (sizeof(message) == 1)
   {
     LoRaValue = message.toInt();
     LoRaType = 1; //! Lora Type durch task ersetzen
-    // task = LoRaValue;
-    if (LoRaValue == LoIsSitting)
-    {
-      LoRa_sendMessage(String(sitting));
-    }
-    else
+
     if (LoRaValue <= 2)
     {
       task = LoRaValue;
     }
-    else if (2 < LoRaValue < 10)
-    {               // Movements
-      if (!sitting) //? Evtl überflüssig, da das schon im switch case steht
-      {             //* Oder auch nicht, weil sonst in der neutralen position der robo aufsteht
-        task = LoRaValue;
-      }
-      else
-      { // Do nothing because we're sitting
-      }
-    }
-    else if (10 <= LoRaValue < 50)
+    //TODO Schaun wie wir das machen
+    else if (LoRaValue == LoGetPosLegs)
     {
-      switch (LoRaValue)
-      {
-      case LoFLS:
-        LoRaGetAngle = cFLS;
-        break;
-      case LoFLT:
-        LoRaGetAngle = cFLT;
-        break;
-      case LoFLB:
-        LoRaGetAngle = cFLB;
-        break;
-      case LoFRS:
-        LoRaGetAngle = cFRS;
-        break;
-      case LoFRT:
-        LoRaGetAngle = cFRT;
-        break;
-      case LoFRB:
-        LoRaGetAngle = cFRB;
-        break;
-      case LoBRS:
-        LoRaGetAngle = cBRS;
-        break;
-      case LoBRT:
-        LoRaGetAngle = cBRT;
-        break;
-      case LoBRB:
-        LoRaGetAngle = cBRB;
-        break;
-      case LoBLS:
-        LoRaGetAngle = cBLS;
-        break;
-      case LoBLT:
-        LoRaGetAngle = cBLT;
-        break;
-      case LoBLB:
-        LoRaGetAngle = cBLB;
-        break;
-      }
-      LoRa_sendMessage(String(LoRaGetAngle));
+      LoRa_sendMessage(String(LoFLS)+"," + String(cFLS));
+      delay(100);
+      LoRa_sendMessage(String(LoFLT)+"," + String(cFLT));
+      delay(100);
+      LoRa_sendMessage(String(LoFLB)+"," + String(cFLB));
+      delay(100);
+      LoRa_sendMessage(String(LoBRS)+"," + String(cBRS));
+      delay(100);
+      LoRa_sendMessage(String(LoBRT)+"," + String(cBRT));
+      delay(100);
+      LoRa_sendMessage(String(LoBRB)+"," + String(cBRB));
+      delay(100);
+      LoRa_sendMessage(String(LoFRS)+"," + String(cFRS));
+      delay(100);
+      LoRa_sendMessage(String(LoFRT)+"," + String(cFRT));
+      delay(100);
+      LoRa_sendMessage(String(LoFRB)+"," + String(cFRB));
+      delay(100);
+      LoRa_sendMessage(String(LoBLS)+"," + String(cBLS));
+      delay(100);
+      LoRa_sendMessage(String(LoBLT)+"," + String(cBLT));
+      delay(100);
+      LoRa_sendMessage(String(LoBLB)+"," + String(cBLB));
     }
   }
   else if (sizeof(message) == 2)
   {
-    task = 10;
     int *LoRaArray = stringToIntArray(message);
-    switch (LoRaArray[0])
-    {
-    case LoFLS:
-      LoRaArray[0] = FLS;
-      break;
-    case LoFLT:
-      LoRaArray[0] = FLT;
-      break;
-    case LoFLB:
-      LoRaArray[0] = FLB;
-      break;
-    case LoFRS:
-      LoRaArray[0] = FRS;
-      break;
-    case LoFRT:
-      LoRaArray[0] = FRT;
-      break;
-    case LoFRB:
-      LoRaArray[0] = FRB;
-      break;
-    case LoBRS:
-      LoRaArray[0] = BRS;
-      break;
-    case LoBRT:
-      LoRaArray[0] = BRT;
-      break;
-    case LoBRB:
-      LoRaArray[0] = BRB;
-      break;
-    case LoBLS:
-      LoRaArray[0] = BLS;
-      break;
-    case LoBLT:
-      LoRaArray[0] = BLT;
-      break;
-    case LoBLB:
-      LoRaArray[0] = BLB;
-      break;
+    if (LoRaArray[0] == joyLeft
+  ){
+      switch (LoRaArray[1]){
+        case 0:
+        break;
+        case 1:
+        break;
+        case 2:
+        break;
+        case 3:
+        break;
+        case 4:
+        default:
+      }
+    } else 
+    if (LoRaArray[0] == joyRight
+  ){
+      switch (LoRaArray[1]){
+        case 0:
+        break;
+        case 1:
+        break;
+        case 2:
+        break;
+        case 3:
+        break;
+        case 4:
+        default:
+      }
+    } else 
+    if (10<=LoRaArray[0]<50){
+    task = 10;//!
     }
-    LoRa_sendMessage(String(LoRaSendAngle));
-    LoRaType = 2;
   }
   else
   {
@@ -934,7 +872,7 @@ int *stringToIntArray(String str)
     endIndex = str.indexOf(',', startIndex);
   }
   intArray[arrayIndex] = str.substring(startIndex).toInt(); // Add the last number
-
+  printf("Array: %d, %d\n", intArray[0], intArray[1]);
   return intArray;
 }
 
