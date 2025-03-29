@@ -67,32 +67,6 @@ void home()
   return;
 }
 
-void stand()
-{//!Delete if useless
-  setServo(FLS, sFLS);
-  setServo(BRS, sBRS);
-  setServo(FRS, sFRS);
-  setServo(BLS, sBLS);
-  setServo(FLT, cFLT - ((cFLT - sFLT) / 2));
-  setServo(BRT, cBRT - ((cBRT - sBRT) / 2));
-  setServo(FRT, cFRT - ((cFRT - sFRT) / 2));
-  setServo(BLT, cBLT - ((cBLT - sBLT) / 2));
-  setServo(FLB, cFLB - ((cFLB - sFLB) / 3));
-  setServo(BRB, cBRB - ((cBRB - sBRB) / 3));
-  setServo(FRB, cFRB - ((cFRB - sFRB) / 3));
-  setServo(BLB, cBLB - ((cBLB - sBLB) / 3));
-  delay(300);
-  setServo(FLT, sFLT);
-  setServo(BRT, sBRT);
-  setServo(FRT, sFRT);
-  setServo(BLT, sBLT);
-  delay(300);
-  setServo(FLB, sFLB);
-  setServo(BRB, sBRB);
-  setServo(FRB, sFRB);
-  setServo(BLB, sBLB);
-}
-
 void GoTo(const int targetPositions[12])
 {
   int stepSize = 2;
@@ -840,4 +814,37 @@ void bop()
   GoTo(nextPos);
   singleLeg = true;
   delay(300);
+}
+
+void hump(){
+  singleLeg = false;
+  for (int i = 0; i < 12; i++)
+  {
+    nextPos[i] = *cPositions[i];
+  }
+  moveLeg(FLt, -4, 0, -3);
+  moveLeg(BRt, -6, 0, 7);
+  moveLeg(FRt, -4, 0, -3);
+  moveLeg(BLt, -6, 0, 6);
+  GoTo(nextPos);
+  singleLeg = true;
+  delay(100);
+  setStandingPose();
+  delay(100);
+}
+
+void changeHeight(int heightChange)
+{
+  height += heightChange;
+  singleLeg = false;
+  for (int i = 0; i < 12; i++)
+  {
+    nextPos[i] = *cPositions[i];
+  }
+  moveLegGeneralFunc(0, X_OFFSET, Y_OFFSET, Z_STAND + height);
+  moveLegGeneralFunc(1, X_OFFSET, Y_OFFSET, Z_STAND + height);
+  moveLegGeneralFunc(2, X_OFFSET, Y_OFFSET, Z_STAND + height);
+  moveLegGeneralFunc(3, X_OFFSET, Y_OFFSET, Z_STAND + height);
+  GoTo(nextPos);
+  singleLeg = true;
 }

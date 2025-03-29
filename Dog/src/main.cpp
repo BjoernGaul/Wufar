@@ -62,15 +62,14 @@
 #define DIO0 D3
 #define NSS D9
 #define frequency 433E6
-
-int LoRaType = 0; 
+int LoRaType = 0;
 int LoRaValue = 0;
 int LoRaServo = 0; // Servo ID
 int *LoRaArray[2] = {0, 0};
 int LoRaGetAngle;
 int LoRaSendAngle;
 const uint8_t joyRight = 100;
-const uint8_t joyLeft  =101;
+const uint8_t joyLeft = 101;
 const uint8_t LoDistance = 200;
 const uint8_t LoGetPosLegs = 250;
 const uint8_t LoSit = 1; // Array only have 1 Element: Value
@@ -158,6 +157,8 @@ bool paused = false;
 bool singleLeg = true;
 bool sitting = true;
 bool boppingTime = false;
+int height = 0;
+bool heightChanged = false;
 
 // Position Arrays
 const int sitpos[12] = {nFLS, nFLT, nFLB, nBRS, nBRT, nBRB, nFRS, nFRT, nFRB, nBLS, nBLT, nBLB};
@@ -225,14 +226,18 @@ void setup()
   // gyrosetup();
 }
 
-void loop(){
- checkIR();
-  // onReceive(LoRa.parsePacket());
+void loop()
+{
+  checkIR();
+  //! onReceive(LoRa.parsePacket());
   // gyroread();
+  if (heightChanged && (task>0) && (task <10))
+  {//If the height is changed, it will first reset its height
+    height = 0;
+    heightChanged = false;
+    setStandingPose();
 
-
-  
-
+  }
   switch (task)
   {
   case 0:
@@ -293,6 +298,9 @@ void loop(){
     setServo(*LoRaArray[0], *LoRaArray[1]);
     task = 0;
     break;
+  case 11:
+    hump();
+    break;
   default:
     setStandingPose();
     break;
@@ -300,7 +308,6 @@ void loop(){
 
   if (displayDistance)
   {
-
     distanceMillis = millis();
     if (distanceMillis % 1000 == 0)
     {
@@ -309,8 +316,6 @@ void loop(){
       LoRa_sendMessage(message);
     }
   }
-
-
 
   if (Serial.available())
   {
@@ -370,6 +375,7 @@ void checkIR()
       {
         task = 1;
       }
+      LoRa_sendMessage(String(LoIsSitting) + "," + String(sitting));
       break;
     case FBVOLUP:
       if (controlmode == 0)
@@ -401,6 +407,8 @@ void checkIR()
     case FB1:
       if (controlmode == 0)
       {
+        changeHeight(1);
+        heightChanged = true;
       }
       else if (controlmode == 1)
       {
@@ -411,6 +419,8 @@ void checkIR()
     case FB2:
       if (controlmode == 0)
       {
+        changeHeight(-1);
+        heightChanged = true;
       }
       else if (controlmode == 1)
       {
@@ -421,6 +431,7 @@ void checkIR()
     case FB3:
       if (controlmode == 0)
       {
+        task = 11;
       }
       else if (controlmode == 1)
       {
@@ -470,7 +481,7 @@ void checkIR()
       break;
     case FB8:
       if (controlmode == 0)
-      {//Bopping
+      { // Bopping
         task = 9;
       }
       else if (controlmode == 1)
@@ -526,7 +537,7 @@ void checkIR()
     case FBREPT:
       if (controlmode == 0)
       {
-        LoRa_sendMessage("69");
+        //LoRa_sendMessage("69");
       }
       else if (controlmode == 1)
       {
@@ -739,11 +750,11 @@ void LoRa_txMode()
 void LoRa_sendMessage(String message)
 {
 
-  Serial.println("Begin message");
-  LoRa.beginPacket(); // start packet
-  LoRa.write(message.length());
-  LoRa.print(message);
-  LoRa.endPacket();
+  // Serial.println("Begin message");
+  // LoRa.beginPacket(); // start packet
+  // LoRa.write(message.length());
+  // LoRa.print(message);
+  // LoRa.endPacket();
 }
 
 void onReceive(int packetSize)
@@ -770,84 +781,98 @@ void onReceive(int packetSize)
   Serial.println();
   stringToIntArray(message);
 
-
   if (sizeof(message) == 1)
   {
     LoRaValue = message.toInt();
-    LoRaType = 1; //! Lora Type durch task ersetzen
 
     if (LoRaValue <= 2)
     {
       task = LoRaValue;
     }
-    //TODO Schaun wie wir das machen
+
     else if (LoRaValue == LoGetPosLegs)
     {
-      LoRa_sendMessage(String(LoFLS)+"," + String(cFLS));
+      LoRa_sendMessage(String(LoFLS) + "," + String(cFLS));
       delay(100);
-      LoRa_sendMessage(String(LoFLT)+"," + String(cFLT));
+      LoRa_sendMessage(String(LoFLT) + "," + String(cFLT));
       delay(100);
-      LoRa_sendMessage(String(LoFLB)+"," + String(cFLB));
+      LoRa_sendMessage(String(LoFLB) + "," + String(cFLB));
       delay(100);
-      LoRa_sendMessage(String(LoBRS)+"," + String(cBRS));
+      LoRa_sendMessage(String(LoBRS) + "," + String(cBRS));
       delay(100);
-      LoRa_sendMessage(String(LoBRT)+"," + String(cBRT));
+      LoRa_sendMessage(String(LoBRT) + "," + String(cBRT));
       delay(100);
-      LoRa_sendMessage(String(LoBRB)+"," + String(cBRB));
+      LoRa_sendMessage(String(LoBRB) + "," + String(cBRB));
       delay(100);
-      LoRa_sendMessage(String(LoFRS)+"," + String(cFRS));
+      LoRa_sendMessage(String(LoFRS) + "," + String(cFRS));
       delay(100);
-      LoRa_sendMessage(String(LoFRT)+"," + String(cFRT));
+      LoRa_sendMessage(String(LoFRT) + "," + String(cFRT));
       delay(100);
-      LoRa_sendMessage(String(LoFRB)+"," + String(cFRB));
+      LoRa_sendMessage(String(LoFRB) + "," + String(cFRB));
       delay(100);
-      LoRa_sendMessage(String(LoBLS)+"," + String(cBLS));
+      LoRa_sendMessage(String(LoBLS) + "," + String(cBLS));
       delay(100);
-      LoRa_sendMessage(String(LoBLT)+"," + String(cBLT));
+      LoRa_sendMessage(String(LoBLT) + "," + String(cBLT));
       delay(100);
-      LoRa_sendMessage(String(LoBLB)+"," + String(cBLB));
+      LoRa_sendMessage(String(LoBLB) + "," + String(cBLB));
     }
   }
   else if (sizeof(message) == 2)
   {
     int *LoRaArray = stringToIntArray(message);
-    if (LoRaArray[0] == joyLeft
-  ){
-      switch (LoRaArray[1]){
-        case 0:
+    if (LoRaArray[0] == joyLeft)
+    {
+      switch (LoRaArray[1])
+      {
+      case 0:
+        task = 2;
         break;
-        case 1:
+      case 1:
+        task = 8;
         break;
-        case 2:
+      case 2:
+        task = 7;
         break;
-        case 3:
+      case 3:
+        task = 4;
+        //TODO displayDistance = true;
         break;
-        case 4:
-        default:
+      case 4:
+        task = 3;
+        break;
+      default:
+      break;
       }
-    } else 
-    if (LoRaArray[0] == joyRight
-  ){
-      switch (LoRaArray[1]){
-        case 0:
-        break;
-        case 1:
-        break;
-        case 2:
-        break;
-        case 3:
-        break;
-        case 4:
-        default:
-      }
-    } else 
-    if (10<=LoRaArray[0]<50){
-    task = 10;//!
     }
-  }
-  else
-  {
-    LoRaType = 0;
+    else if (LoRaArray[0] == joyRight)
+    {
+      switch (LoRaArray[1])
+      {
+      case 0:
+        task = 2;
+        break;
+      case 1:
+        task = 6;
+        break;
+      case 2:
+        task = 5;
+        break;
+      case 3:
+        changeHeight(1);
+        heightChanged = true;
+        break;
+      case 4:
+        changeHeight(-1);
+        heightChanged = true;
+        break;
+      default:
+      break;
+      }
+    }
+    else if (10 <= LoRaArray[0] < 50)
+    {
+      task = 10; //!
+    }
   }
 }
 

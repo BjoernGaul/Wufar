@@ -13,8 +13,7 @@
 #include <LoRa.h>
 
 extern int angleToPulse(int ang);
-void home();                     // Startup Position
-void stand();                    // Standing position
+void home();                     // Startup Position                   
 void GoTo(const int targetPositions[12]); // Takes an array of 12 ints and moves the servos to those positions
 void setServo(int motor, int angle);                                   // Moves a single servo to a certain angle
 void setServoS(int GoUp);                                              // Moves all side Servos
@@ -37,7 +36,9 @@ void sidestepRR();
 void sidestepLL();
 void rotateRR();
 void rotateLL();
-void bop(); //bops up and down
+void bop(); 
+void hump();
+void changeHeight(int heightChange);
 extern void waitforButton();
 extern void checkIR();
 
@@ -55,4 +56,5 @@ extern int nextPos[12];
 extern int selectedServo;
 extern bool singleLeg;
 extern bool boppingTime;
+extern int height;
 #endif
