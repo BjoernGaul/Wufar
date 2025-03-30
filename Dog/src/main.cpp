@@ -57,6 +57,8 @@
 #define Z_STAND 12.5 // Hip Height while standing (cm)
 #define X_OFFSET 2.0 // Feet slightly in front of the hip
 #define Y_OFFSET 1.5 // Distance foot to hip
+#define H_MAX -6.0
+#define H_MIN 6.0
 
 // LoRa
 #define DIO0 D3
@@ -157,7 +159,7 @@ bool paused = false;
 bool singleLeg = true;
 bool sitting = true;
 bool boppingTime = false;
-int height = 0;
+float height = 0;
 bool heightChanged = false;
 
 // Position Arrays
@@ -301,6 +303,12 @@ void loop()
   case 11:
     hump();
     break;
+  case 12:
+    changeHeight(0.2);
+    break;
+  case 13:
+    changeHeight(-0.2);
+    break;
   default:
     setStandingPose();
     break;
@@ -406,8 +414,9 @@ void checkIR()
       break;
     case FB1:
       if (controlmode == 0)
-      {
-        changeHeight(1);
+      {//Höher
+        task = 12;
+
         heightChanged = true;
       }
       else if (controlmode == 1)
@@ -418,8 +427,9 @@ void checkIR()
       break;
     case FB2:
       if (controlmode == 0)
-      {
-        changeHeight(-1);
+      {//Tiefer
+        task = 13;
+        
         heightChanged = true;
       }
       else if (controlmode == 1)
@@ -452,6 +462,7 @@ void checkIR()
     case FB5:
       if (controlmode == 0)
       {
+        task = 0;
       }
       else if (controlmode == 1)
       {
@@ -792,29 +803,29 @@ void onReceive(int packetSize)
 
     else if (LoRaValue == LoGetPosLegs)
     {
-      LoRa_sendMessage(String(LoFLS) + "," + String(cFLS));
+      LoRa_sendMessage(String(LoFLS) + "," + String(cFLS + servoOffsets[0]));
       delay(100);
-      LoRa_sendMessage(String(LoFLT) + "," + String(cFLT));
+      LoRa_sendMessage(String(LoFLT) + "," + String(cFLT + servoOffsets[1]));
       delay(100);
-      LoRa_sendMessage(String(LoFLB) + "," + String(cFLB));
+      LoRa_sendMessage(String(LoFLB) + "," + String(cFLB + servoOffsets[2]));
       delay(100);
-      LoRa_sendMessage(String(LoBRS) + "," + String(cBRS));
+      LoRa_sendMessage(String(LoBRS) + "," + String(cBRS + servoOffsets[3]));
       delay(100);
-      LoRa_sendMessage(String(LoBRT) + "," + String(cBRT));
+      LoRa_sendMessage(String(LoBRT) + "," + String(cBRT + servoOffsets[4]));
       delay(100);
-      LoRa_sendMessage(String(LoBRB) + "," + String(cBRB));
+      LoRa_sendMessage(String(LoBRB) + "," + String(cBRB + servoOffsets[5]));
       delay(100);
-      LoRa_sendMessage(String(LoFRS) + "," + String(cFRS));
+      LoRa_sendMessage(String(LoFRS) + "," + String(cFRS + servoOffsets[6]));
       delay(100);
-      LoRa_sendMessage(String(LoFRT) + "," + String(cFRT));
+      LoRa_sendMessage(String(LoFRT) + "," + String(cFRT + servoOffsets[7]));
       delay(100);
-      LoRa_sendMessage(String(LoFRB) + "," + String(cFRB));
+      LoRa_sendMessage(String(LoFRB) + "," + String(cFRB + servoOffsets[8]));
       delay(100);
-      LoRa_sendMessage(String(LoBLS) + "," + String(cBLS));
+      LoRa_sendMessage(String(LoBLS) + "," + String(cBLS + servoOffsets[9]));
       delay(100);
-      LoRa_sendMessage(String(LoBLT) + "," + String(cBLT));
+      LoRa_sendMessage(String(LoBLT) + "," + String(cBLT + servoOffsets[10]));
       delay(100);
-      LoRa_sendMessage(String(LoBLB) + "," + String(cBLB));
+      LoRa_sendMessage(String(LoBLB) + "," + String(cBLB + servoOffsets[11]));
     }
   }
   else if (sizeof(message) == 2)
@@ -849,7 +860,7 @@ void onReceive(int packetSize)
       switch (LoRaArray[1])
       {
       case 0:
-        task = 2;
+        task = 0;
         break;
       case 1:
         task = 6;
@@ -858,11 +869,11 @@ void onReceive(int packetSize)
         task = 5;
         break;
       case 3:
-        changeHeight(1);
+        task = 13;
         heightChanged = true;
         break;
       case 4:
-        changeHeight(-1);
+        task = 12;
         heightChanged = true;
         break;
       default:
@@ -871,6 +882,37 @@ void onReceive(int packetSize)
     }
     else if (10 <= LoRaArray[0] < 50)
     {
+      switch (LoRaArray[0])
+      {
+        case LoFLS:
+        break;
+        case LoFLT:
+        break;
+        case LoFLB:
+        break;
+        case LoBRS:
+        break;
+        case LoBRT:
+        break;
+        case LoBRB:
+        break;
+        case LoFRS:
+        break;
+        case LoFRT:
+        break;
+        case LoFRB:
+        break;
+        case LoBLS:
+        break;
+        case LoBLT:
+        break;
+        case LoBLB:
+        break;
+        default:
+        break;
+        
+
+      }
       task = 10; //!
     }
   }

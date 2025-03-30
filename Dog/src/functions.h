@@ -38,7 +38,7 @@ void rotateRR();
 void rotateLL();
 void bop(); 
 void hump();
-void changeHeight(int heightChange);
+void changeHeight(float heightChange);
 extern void waitforButton();
 extern void checkIR();
 
@@ -56,5 +56,5 @@ extern int nextPos[12];
 extern int selectedServo;
 extern bool singleLeg;
 extern bool boppingTime;
-extern int height;
+extern float height;
 #endif

@@ -36,6 +36,8 @@ extern Adafruit_PWMServoDriver servoDriver_module;
 #define Z_STAND 12.5 // Hip Height while standing (cm)
 #define X_OFFSET 2.0 // Feet slightly in front of the hip
 #define Y_OFFSET 1.5 // Distance foot to hip
+#define H_MAX -6.0
+#define H_MIN 6.0
 
 int angleToPulse(int ang)
 {
@@ -833,9 +835,17 @@ void hump(){
   delay(100);
 }
 
-void changeHeight(int heightChange)
+void changeHeight(float heightChange)
 {
   height += heightChange;
+  if (height < H_MAX)
+  {
+    height = H_MAX;
+  }
+  else if (height > H_MIN)
+  {
+    height = H_MIN;
+  }
   singleLeg = false;
   for (int i = 0; i < 12; i++)
   {
