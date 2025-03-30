@@ -47,6 +47,10 @@ int angleToPulse(int ang)
 
 void setServo(int motor, int angle)
 {
+  if (motor < 0)
+  {
+    return;
+  }
   int adjustedAngle = angle + servoOffsets[motor];
   servoDriver_module.setPWM(motor, 0, angleToPulse(adjustedAngle));
   *cPositions[motor] = angle;

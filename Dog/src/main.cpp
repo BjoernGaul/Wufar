@@ -66,7 +66,9 @@
 #define frequency 433E6
 int LoRaType = 0;
 int LoRaValue = 0;
-int LoRaServo = 0; // Servo ID
+int LoRaServo = 0; // Servo ID when the Controller is setting a single servo
+int LoRaOffset = 0; // Offset of the angle sent by the Controller
+int LoRaAngle = 0;  //Angle of the Servo sent by the Controller (incl offset)
 int *LoRaArray[2] = {0, 0};
 int LoRaGetAngle;
 int LoRaSendAngle;
@@ -238,7 +240,6 @@ void loop()
     height = 0;
     heightChanged = false;
     setStandingPose();
-
   }
   switch (task)
   {
@@ -297,17 +298,24 @@ void loop()
     }
     break;
   case 10:
-    setServo(*LoRaArray[0], *LoRaArray[1]);
+    setServo(LoRaServo, LoRaAngle);
     task = 0;
     break;
   case 11:
+    if(!sitting){
     hump();
+  }
     break;
   case 12:
-    changeHeight(0.2);
+    if (!sitting)
+    {
+      changeHeight(0.1);
+    }
     break;
   case 13:
-    changeHeight(-0.2);
+    if (!sitting){
+    changeHeight(-0.1);
+    }
     break;
   default:
     setStandingPose();
@@ -322,6 +330,9 @@ void loop()
       distance = getDistance();
       String message = String(200) + "," + String(distance);
       LoRa_sendMessage(message);
+      if (task != 3){
+        displayDistance = false;
+      }
     }
   }
 
@@ -885,33 +896,57 @@ void onReceive(int packetSize)
       switch (LoRaArray[0])
       {
         case LoFLS:
+        LoRaServo = FLS;
+        LoRaAngle = LoRaArray[1] - servoOffsets[0];
         break;
         case LoFLT:
+        LoRaServo = FLT;
+        LoRaAngle = LoRaArray[1] - servoOffsets[1];
         break;
         case LoFLB:
+        LoRaServo = FLB;
+        LoRaAngle = LoRaArray[1] - servoOffsets[2];
         break;
         case LoBRS:
+        LoRaServo = BRS;
+        LoRaAngle = LoRaArray[1] - servoOffsets[3];
         break;
         case LoBRT:
+        LoRaServo = BRT;
+        LoRaAngle = LoRaArray[1] - servoOffsets[4];
         break;
         case LoBRB:
+        LoRaServo = BRB;
+        LoRaAngle = LoRaArray[1] - servoOffsets[5];
         break;
         case LoFRS:
+        LoRaServo = FRS;
+        LoRaAngle = LoRaArray[1] - servoOffsets[6];
         break;
         case LoFRT:
+        LoRaServo = FRT;
+        LoRaAngle = LoRaArray[1] - servoOffsets[7];
         break;
         case LoFRB:
+        LoRaServo = FRB;
+        LoRaAngle = LoRaArray[1] - servoOffsets[8];
         break;
         case LoBLS:
+        LoRaServo = BLS;
+        LoRaAngle = LoRaArray[1] - servoOffsets[9];
         break;
         case LoBLT:
+        LoRaServo = BLT;
+        LoRaAngle = LoRaArray[1] - servoOffsets[10];
         break;
         case LoBLB:
+        LoRaServo = BLB;
+        LoRaAngle = LoRaArray[1] - servoOffsets[11];
         break;
         default:
-        break;
-        
+        LoRaServo = -1;
 
+        break;
       }
       task = 10; //!
     }
