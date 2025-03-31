@@ -61,17 +61,19 @@
 #define H_MIN 6.0
 
 // LoRa
-#define DIO0 D3
-#define NSS D9
+#define DIO0 D10
+#define NSS D5
 #define frequency 433E6
 int LoRaType = 0;
 int LoRaValue = 0;
 int LoRaServo = 0; // Servo ID when the Controller is setting a single servo
 int LoRaOffset = 0; // Offset of the angle sent by the Controller
 int LoRaAngle = 0;  //Angle of the Servo sent by the Controller (incl offset)
-int *LoRaArray[2] = {0, 0};
+// int* LoRaArray[2] = {0, 0};
 int LoRaGetAngle;
 int LoRaSendAngle;
+volatile bool gotMsg = false; 
+String TempMsg = "";
 const uint8_t joyRight = 100;
 const uint8_t joyLeft = 101;
 const uint8_t LoDistance = 200;
@@ -110,8 +112,8 @@ IRrecv irrecv(RECV_PIN);
 decode_results results;
 Adafruit_MPU6050 mpu;
 // Ultrasonic
-const int trigPin = D6;
-const int echoPin = D7;
+const int trigPin = D11;
+const int echoPin = A1;
 float duration, distance;
 // current positions
 int cFLS = 0, cFLT = 0, cFLB = 0, cBRS = 0, cBRT = 0, cBRB = 0, cFRS = 0, cFRT = 0, cFRB = 0, cBLS = 0, cBLT = 0, cBLB = 0;
@@ -120,7 +122,6 @@ int nextPos[12] = {cFLS, cFLT, cFLB, cBRS, cBRT, cBRB, cFRS, cFRT, cFRB, cBLS, c
 
 // neutral positions
 const int servoOffsets[12] = {97, 160, 5, 150, 140, 35, 94, 165, 185, 28, 55, 162}; // Offset
-// zweiter offset: default 155
 const int nFLS = 0;
 const int nFLT = 0;
 const int nFLB = 0;
@@ -183,9 +184,10 @@ void calibrateGyro();
 void LoRa_rxMode();
 void LoRa_txMode();
 void LoRa_sendMessage(String message);
-void onReceive(int packetSize);
+void onReceive(String message);
 void onTxDone();
 int *stringToIntArray(String str);
+void LoRaHandleMsg(int packetSize);
 
 // Ultrasonic functions
 float getDistance();
@@ -205,23 +207,20 @@ void setup()
   // LoRa Setup
   delay(500);
   Serial.println("LoRa Start");
+  
   LoRa.setPins(NSS, -1, DIO0);
+  
   unsigned long startAttemptTime = millis();
-  // while (!LoRa.begin(frequency))
-  // {
-  //   if (millis() - startAttemptTime > 1000)
-  //   {
-  //     Serial.println("LoRa init failed. Check your connections.");
-  //     break;
-  //   }
-  // }
-  // if (millis() - startAttemptTime <= 1000)
-  // {
-  //   Serial.println("LoRa init succeeded.");
-  // }
-
+  if (!LoRa.begin(frequency)) {
+    Serial.println("LoRa init failed. Check your connections.");
+    while (true);                       // if failed, do nothing
+  } 
+  // attachInterrupt(digitalPinToInterrupt(DIO0), testLo, RISING);
+  // LoRa.receive();
+  // pinMode(DIO0, INPUT_PULLUP);
   // Alt
-  //  LoRa.onReceive(onReceive);
+  LoRa.onReceive(LoRaHandleMsg);
+  LoRa.receive();    
   //  LoRa.onTxDone(onTxDone);
   //  LoRa_rxMode();
   //  Ultrasonic
@@ -232,8 +231,13 @@ void setup()
 
 void loop()
 {
+  if (gotMsg)
+  {
+    gotMsg = false;
+    onReceive(TempMsg);
+  }
   checkIR();
-  //! onReceive(LoRa.parsePacket());
+  // onReceive(LoRa.parsePacket());
   // gyroread();
   if (heightChanged && (task>0) && (task <10))
   {//If the height is changed, it will first reset its height
@@ -330,7 +334,7 @@ void loop()
       distance = getDistance();
       String message = String(200) + "," + String(distance);
       LoRa_sendMessage(message);
-      if (task != 3){
+      if (task != 3 && task != 4){
         displayDistance = false;
       }
     }
@@ -351,7 +355,7 @@ void loop()
     else if (c == '\n') // Enter
     {
       Serial.printf("Command: %s\n", command);
-      setServo(FLB, atoi(command));
+      setServo(BLT, atoi(command));
       idx = 0;
       for (int i = 0; i < 10; i++)
       {
@@ -771,7 +775,6 @@ void LoRa_txMode()
 
 void LoRa_sendMessage(String message)
 {
-
   // Serial.println("Begin message");
   // LoRa.beginPacket(); // start packet
   // LoRa.write(message.length());
@@ -779,88 +782,69 @@ void LoRa_sendMessage(String message)
   // LoRa.endPacket();
 }
 
-void onReceive(int packetSize)
+void onReceive(String message)
 {
-  if (packetSize == 0)
-    return;
-  byte incomingLength = LoRa.read(); // incoming msg length
 
-  String message = "";
-
-  while (LoRa.available())
-  {
-    message += (char)LoRa.read();
-  }
-
-  if (incomingLength != message.length())
-  { // check length for error
-    Serial.println("error: message length does not match length");
-    return; // skip rest of function
-  }
-
-  Serial.println("Message length: " + String(incomingLength));
-  Serial.println("Message: " + message);
-  Serial.println();
-  stringToIntArray(message);
-
-  if (sizeof(message) == 1)
-  {
-    LoRaValue = message.toInt();
-
+  int *LoRaArray = stringToIntArray(message); 
+  
+  if (LoRaArray[0] <=2 || LoRaArray[0] == LoGetPosLegs){
+    LoRaValue = LoRaArray[0];
+    Serial.println("LoRaValue: " + String(LoRaValue));
     if (LoRaValue <= 2)
     {
+      Serial.println("task should be: " + String(LoRaValue));
       task = LoRaValue;
     }
 
     else if (LoRaValue == LoGetPosLegs)
     {
       LoRa_sendMessage(String(LoFLS) + "," + String(cFLS + servoOffsets[0]));
-      delay(100);
+      delay(50);
       LoRa_sendMessage(String(LoFLT) + "," + String(cFLT + servoOffsets[1]));
-      delay(100);
+      delay(50);
       LoRa_sendMessage(String(LoFLB) + "," + String(cFLB + servoOffsets[2]));
-      delay(100);
+      delay(50);
       LoRa_sendMessage(String(LoBRS) + "," + String(cBRS + servoOffsets[3]));
-      delay(100);
+      delay(50);
       LoRa_sendMessage(String(LoBRT) + "," + String(cBRT + servoOffsets[4]));
-      delay(100);
+      delay(50);
       LoRa_sendMessage(String(LoBRB) + "," + String(cBRB + servoOffsets[5]));
-      delay(100);
+      delay(50);
       LoRa_sendMessage(String(LoFRS) + "," + String(cFRS + servoOffsets[6]));
-      delay(100);
+      delay(50);
       LoRa_sendMessage(String(LoFRT) + "," + String(cFRT + servoOffsets[7]));
-      delay(100);
+      delay(50);
       LoRa_sendMessage(String(LoFRB) + "," + String(cFRB + servoOffsets[8]));
-      delay(100);
+      delay(50);
       LoRa_sendMessage(String(LoBLS) + "," + String(cBLS + servoOffsets[9]));
-      delay(100);
+      delay(0);
       LoRa_sendMessage(String(LoBLT) + "," + String(cBLT + servoOffsets[10]));
-      delay(100);
+      delay(50);
       LoRa_sendMessage(String(LoBLB) + "," + String(cBLB + servoOffsets[11]));
     }
   }
-  else if (sizeof(message) == 2)
+  else if (2 < LoRaArray[0] <= 50)
   {
-    int *LoRaArray = stringToIntArray(message);
     if (LoRaArray[0] == joyLeft)
     {
       switch (LoRaArray[1])
       {
-      case 0:
+      case 10:
         task = 2;
         break;
-      case 1:
+      case 11:
         task = 8;
         break;
-      case 2:
+      case 12:
         task = 7;
         break;
-      case 3:
+      case 13:
         task = 4;
-        //TODO displayDistance = true;
+        displayDistance = true;
         break;
-      case 4:
+      case 14:
         task = 3;
+        displayDistance = true;
         break;
       default:
       break;
@@ -870,20 +854,20 @@ void onReceive(int packetSize)
     {
       switch (LoRaArray[1])
       {
-      case 0:
+      case 10:
         task = 0;
         break;
-      case 1:
+      case 11:
         task = 6;
         break;
-      case 2:
+      case 12:
         task = 5;
         break;
-      case 3:
+      case 13:
         task = 13;
         heightChanged = true;
         break;
-      case 4:
+      case 14:
         task = 12;
         heightChanged = true;
         break;
@@ -948,9 +932,11 @@ void onReceive(int packetSize)
 
         break;
       }
-      task = 10; //!
+      task = 10; 
     }
   }
+  TempMsg = "";
+  
 }
 
 void onTxDone()
@@ -974,7 +960,7 @@ int *stringToIntArray(String str)
     endIndex = str.indexOf(',', startIndex);
   }
   intArray[arrayIndex] = str.substring(startIndex).toInt(); // Add the last number
-  printf("Array: %d, %d\n", intArray[0], intArray[1]);
+  // printf("Array: %d, %d\n", intArray[0], intArray[1]);
   return intArray;
 }
 
@@ -998,4 +984,30 @@ float getDistance()
     distanceFlag = false;
   }
   return distanceFnct;
+}
+
+void LoRaHandleMsg(int packetSize){
+
+  gotMsg = true;
+  if (packetSize == 0)
+  {
+    return;
+  }
+  byte incomingLength = LoRa.read(); // incoming msg length
+  String message = "";
+  while (LoRa.available())
+  {
+    message += (char)LoRa.read();
+  }
+  if (incomingLength != message.length())
+  { // check length for error
+    Serial.println("error: message length does not match length");
+    return; // skip rest of function
+  }
+  TempMsg = message;
+  // Serial.println("Message length: " + String(incomingLength));
+  // Serial.println("Message: " + message);
+  // Serial.println();
+  // *LoRaArray = stringToIntArray(message);  
+
 }
