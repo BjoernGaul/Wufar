@@ -56,22 +56,6 @@ void setServo(int motor, int angle)
   *cPositions[motor] = angle;
 }
 
-void home()
-{//! Delete if useless
-  setServo(FLS, nFLS);
-  setServo(BRS, nBRS);
-  setServo(FRS, nFRS);
-  setServo(BLS, nBLS);
-  setServo(FLT, nFLT);
-  setServo(BRT, nBRT);
-  setServo(FRT, nFRT);
-  setServo(BLT, nBLT);
-  setServo(FLB, nFLB);
-  setServo(BRB, nBRB);
-  setServo(FRB, nFRB);
-  setServo(BLB, nBLB);
-  return;
-}
 
 void GoTo(const int targetPositions[12])
 {
@@ -330,67 +314,8 @@ void moveServo(int selectedServo, int updown)
   setServo(selectedServo, *cPositions[selectedServo] + step);
 }
 
-void sidestepR()
-{
-  // Linke Seite absenken
-  setServo(FLB, cFLB - 20);
-  setServo(BLB, cBLB + 20);
-  delay(100);
-  waitforButton();
-  // Rechtes Bein Vorne bewegen
-  setServoSlow(FRB, cFRB + 20, 3);
-  setServoSlow(FRT, cFRT - 10, 3);
-  setServoSlow(FRS, cFRS - 20, 3);
-  delay(50);
-  setServoSlow(FRT, cFRT + 15, 3);
-  setServoSlow(FRB, cFRB - 30, 3);
-  // Rechtes Bein Hinten bewegen
-  setServoSlow(BRB, cBRB - 20, 3);
-  setServoSlow(BRT, cBRT + 10, 3);
-  setServoSlow(BRS, cBRS + 20, 3);
-  delay(50);
-  setServoSlow(BRT, cBRT - 15, 3);
-  setServoSlow(BRB, cBRB + 30, 3);
-  waitforButton();
-  // Alle Beine Seitlich bewegen
-  GoTo(slideright);
-}
-
-void rotateL()
-{
-  setServo(FRB, cFRB + 50);
-  delay(20);
-  setServo(FRS, cFRS + 10);
-  delay(20);
-  setServo(FRB, cFRB - 50);
-  delay(200);
-  setServo(BLB, cBLB + 50);
-  delay(20);
-  setServo(BLS, cBLS + 10);
-  delay(20);
-  setServo(BLB, cBLB - 50);
-  delay(200);
-
-  setServo(FLB, cFLB - 50);
-  delay(20);
-  setServo(FLS, cFLS + 10);
-  delay(20);
-  setServo(FLB, cFLB + 50);
-  delay(200);
-  setServo(BRB, cBRB - 50);
-  delay(20);
-  setServo(BRS, cBRS + 10);
-  delay(20);
-  setServo(BRB, cBRB + 50);
-  delay(200);
-  setServo(FRS, cFRS - 10);
-  setServo(BLS, cBLS - 10);
-  setServo(FLS, cFLS - 10);
-  setServo(BRS, cBRS - 10);
-}
-
 void walk()
-{
+{//Backup walking function
   setServo(FRB, cFRB + 30);
   setServo(FRT, sFRT + 15);
   delay(100);
@@ -426,11 +351,10 @@ void walk()
   // setServo(FLT, sFLT+10);
   // setServo(BRT, sBRT+10);
   // setServo(BLT, sBLT+10);
-
   GoTo(standpos);
 }
 
-void walkback()
+void walkBB()
 {
   moveLeg(FLt, 1, 0, 3);
   delay(100);
@@ -482,12 +406,9 @@ void computeIK(int legID, float x, float y, float z, float &theta1, float &theta
   theta2 = 90 - ((alpha + beta) * 180.0 / M_PI); // Angle of Hip
 }
 
-// Servo-Mapping (Pin-Number skip 6)
-// int servoMap[12] = {0, 1, 2, 3, 4, 5, 7, 8, 9, 10, 11, 12};
 
-// general Function to move a leg in a local coordinate system
 void moveLegGeneralFunc(int legID, float x, float y, float z, int stepsize)
-{
+{// general Function to move a leg in a local coordinate system
   if (singleLeg)
   {
     for (int i = 0; i < 12; i++)
@@ -540,10 +461,9 @@ void moveLegGeneralFunc(int legID, float x, float y, float z, int stepsize)
     }
   }
 }
-// Leg function including offset calculation
+
 void moveLeg(int legID, float x, float y, float z, int stepsize)
-{
-  // Offsets einbinden damit die Standard-Stehposition 0,0,0 ist
+{// Leg function including offset calculation
   float adjustedX;
   if (legID == 1 || legID == 3)
   {

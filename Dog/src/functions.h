@@ -12,8 +12,7 @@
 #include <Adafruit_MPU6050.h>
 #include <LoRa.h>
 
-extern int angleToPulse(int ang);
-void home();                     // Startup Position                   
+extern int angleToPulse(int ang);                
 void GoTo(const int targetPositions[12]); // Takes an array of 12 ints and moves the servos to those positions
 void setServo(int motor, int angle);                                   // Moves a single servo to a certain angle
 void setServoS(int GoUp);                                              // Moves all side Servos
@@ -25,10 +24,8 @@ void moveServo(int selectedServo, int updown);                         // Moves 
 void computeIK(int legID,float x, float y, float z, float &theta1, float &theta2, float &theta3);
 void moveLegGeneralFunc(int legID, float x, float y, float z, int stepsize = 0);
 void moveLeg(int legID, float x, float y, float z, int stepsize = 0);
-void sidestepR();
-void rotateL();
 void walk();
-void walkback();
+void walkBB();
 void setStandingPose();
 void standneutral();
 void walkFF();
@@ -50,11 +47,9 @@ extern const int nPositions[12];
 extern const int sPositions[12];
 extern const int sitpos[12];
 extern const int standpos[12];
-extern const int slideright[12];
 extern int* cPositions[12];
 extern int nextPos[12];
 extern int selectedServo;
 extern bool singleLeg;
-extern bool boppingTime;
 extern float height;
 #endif
