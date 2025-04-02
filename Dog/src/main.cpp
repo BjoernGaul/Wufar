@@ -10,7 +10,7 @@
 #include <LoRa.h>
 #include "functions.h"
 
-// Pin of Servos
+//* Pin of Servos
 #define FLS 0
 #define FLT 1
 #define FLB 2
@@ -23,13 +23,13 @@
 #define BLS 9
 #define BLT 10
 #define BLB 11
-// Leg IDs
+//* Leg IDs
 #define FLt 0
 #define BRt 1
 #define FRt 2
 #define BLt 3
 
-// Hex-Adressen for IR Remote
+//* Hex-Adresses for IR Remote
 #define FBPOWER 0xFFA25D
 #define FB0 0xFF6897
 #define FB1 0xFF30CF
@@ -52,6 +52,7 @@
 #define FBREPT 0xFFB04F
 #define FBFUNC 0xFFE21D
 
+//* Servo Parameters
 #define L1 8.4       // Upper Leg Length (cm)
 #define L2 12.2      // Lower Leg Length (cm)
 #define Z_STAND 12.5 // Hip Height while standing (cm)
@@ -60,7 +61,7 @@
 #define H_MAX -6.0
 #define H_MIN 6.0
 
-// LoRa
+//* LoRa
 #define DIO0 D10
 #define NSS D5
 #define frequency 433E6
@@ -73,7 +74,7 @@ int LoRaGetAngle;
 int LoRaSendAngle;
 volatile bool gotMsg = false;
 String TempMsg = "";
-  //LoRaArray[0] values
+//* LoRaArray[0] values
 const uint8_t LoSit = 1;
 const uint8_t LoHump = 3;
 const uint8_t LoBop = 9;
@@ -82,7 +83,7 @@ const uint8_t joyRight = 100;
 const uint8_t joyLeft = 101;
 const uint8_t LoDistance = 200;
 const uint8_t LoGetPosLegs = 250;
-  //LoRaArray[1] values
+//* LoRaArray[1] values
 const uint8_t LoStand = 10;
 const uint8_t LoRotL = 11;
 const uint8_t LoRotR = 12;
@@ -92,7 +93,7 @@ const uint8_t LoCrabL = 11;
 const uint8_t LoCrabR = 12;
 const uint8_t LoUp = 13;
 const uint8_t LoDown = 14;
-  //LoRaArray[0] values for single Servos
+//* LoRaArray[0] values for single Servos
 const uint8_t LoFLS = 10;
 const uint8_t LoFLT = 11;
 const uint8_t LoFLB = 12;
@@ -107,25 +108,26 @@ const uint8_t LoBLT = 41;
 const uint8_t LoBLB = 42;
 const uint8_t reset = 255;
 
-// Variables for IR Remote
+//*IR Remote
 const uint16_t RECV_PIN = 4;
 int controlmode = 0;
 int selectedServo;
-
 Adafruit_PWMServoDriver servoDriver_module = Adafruit_PWMServoDriver(0x40);
 IRrecv irrecv(RECV_PIN);
 decode_results results;
 Adafruit_MPU6050 mpu;
-// Ultrasonic
+
+//* Ultrasonic
 const int trigPin = D11;
-const int echoPin = A1;
+const int echoPin = D3;
 float duration, distance;
-// current positions
+
+//* current positions
 int cFLS = 0, cFLT = 0, cFLB = 0, cBRS = 0, cBRT = 0, cBRB = 0, cFRS = 0, cFRT = 0, cFRB = 0, cBLS = 0, cBLT = 0, cBLB = 0;
 int *cPositions[12] = {&cFLS, &cFLT, &cFLB, &cBRS, &cBRT, &cBRB, &cFRS, &cFRT, &cFRB, &cBLS, &cBLT, &cBLB};
 int nextPos[12] = {cFLS, cFLT, cFLB, cBRS, cBRT, cBRB, cFRS, cFRT, cFRB, cBLS, cBLT, cBLB};
 
-// neutral positions
+//* neutral positions
 const int servoOffsets[12] = {97, 160, 5, 135, 150, 35, 94, 165, 185, 28, 55, 162}; // Offset
 const int nFLS = 0;
 const int nFLT = 0;
@@ -141,7 +143,7 @@ const int nBLT = 0;
 const int nBLB = 0;
 const int nPositions[12] = {nFLS, nFLT, nFLB, nBRS, nBRT, nBRB, nFRS, nFRT, nFRB, nBLS, nBLT, nBLB};
 
-// Standing Positions
+//* Standing Positions
 const int sFLS = nFLS;
 const int sFLT = nFLT - 30;
 const int sFLB = nFLB + 60;
@@ -156,11 +158,11 @@ const int sBLT = nBLT + 30;
 const int sBLB = nBLB - 60;
 const int sPositions[12] = {sFLS, sFLT, sFLB, sBRS, sBRT, sBRB, sFRS, sFRT, sFRB, sBLS, sBLT, sBLB};
 
-// Gyroscope offset values
+//* Gyroscope offset values
 float accelXOffset = 0, accelYOffset = 0, accelZOffset = 0;
 float gyroXOffset = 0, gyroYOffset = 0, gyroZOffset = 0;
 
-// Other variables
+//* Other variables
 int task = 0; // provides the task for the robot
 void waitforButton();
 bool paused = false;
@@ -169,57 +171,57 @@ bool sitting = true;
 float height = 0;
 bool heightChanged = false;
 
-// Position Arrays
+//* Position Arrays
 const int sitpos[12] = {nFLS, nFLT, nFLB, nBRS, nBRT, nBRB, nFRS, nFRT, nFRB, nBLS, nBLT, nBLB};
 const int standpos[12] = {sFLS, sFLT, sFLB, sBRS, sBRT, sBRB, sFRS, sFRT, sFRB, sBLS, sBLT, sBLB};
 
-// serial monitor input
+//* serial monitor input
 char command[10];
 int idx = 0;
 
-void onDataReceive(const uint8_t *mac, const uint8_t *data, int len);
 void checkIR();
 void gyrosetup();
 void gyroread();
 void calibrateGyro();
 
-// LoRa functions
+//* LoRa functions
 void LoRa_sendMessage(String message);
 void onReceive(String message);
 int *stringToIntArray(String str);
 void LoRaHandleMsg(int packetSize);
 
-// Ultrasonic functions
+//* Ultrasonic functions
 float getDistance();
-int distanceMillis;
+int distanceMillisC;
+int distanceMillisL;
 bool displayDistance = false;
 bool distanceFlag = false;
+
 
 void setup()
 {
   Serial.begin(9600);
   Serial.println("Setup Start");
+  //* Servo Setup
   servoDriver_module.begin();
   servoDriver_module.setPWMFreq(50); // operation frequency of the servos
   GoTo(sitpos);
+  //* IR Setup
   irrecv.enableIRIn(); // Infrared Remote
   Serial.println("IR enabled");
-  // LoRa Setup
+  //* LoRa Setup
   delay(500);
   Serial.println("LoRa Start");
-
   LoRa.setPins(NSS, -1, DIO0);
-
-  unsigned long startAttemptTime = millis();
   if (!LoRa.begin(frequency))
   {
     Serial.println("LoRa init failed. Check your connections.");
     while (true)
-      ; // if failed, do nothing
+      ;
   }
   LoRa.onReceive(LoRaHandleMsg);
   LoRa.receive();
-  //  Ultrasonic
+  //*  Ultrasonic
   pinMode(trigPin, OUTPUT);
   pinMode(echoPin, INPUT);
   // gyrosetup();
@@ -227,20 +229,23 @@ void setup()
 
 void loop()
 {
+  //* Handle Communication messages
   if (gotMsg)
   {
     gotMsg = false;
     onReceive(TempMsg);
   }
   checkIR();
-  // onReceive(LoRa.parsePacket());
   // gyroread();
+  //* Checks height before any other task
   if (heightChanged && (task > 0) && (task < 10))
   { // If the height is changed, it will first reset its height
     height = 0;
     heightChanged = false;
     setStandingPose();
   }
+
+  //* State Machine
   switch (task)
   {
   case 0:
@@ -259,6 +264,10 @@ void loop()
     if (!sitting)
     {
       walkFF();
+      if (distanceFlag)
+      {
+        task = 2;
+      }
     }
     break;
   case 4:
@@ -323,22 +332,23 @@ void loop()
     setStandingPose();
     break;
   }
-
+  //* Ultrasonic Module
   if (displayDistance)
   {
-    distanceMillis = millis();
-    if (distanceMillis % 1000 == 0)
+    distanceMillisC = millis();
+    if (distanceMillisC - distanceMillisL > 1000)
     {
       distance = getDistance();
-      String message = String(200) + "," + String(distance);
+      String message = String(200) + ", " + String(distance);
       LoRa_sendMessage(message);
+      distanceMillisL = distanceMillisC;
       if (task != 3 && task != 4)
       {
         displayDistance = false;
       }
     }
   }
-
+  //* Serial Monitor
   if (Serial.available())
   {
     char c = Serial.read();
@@ -354,7 +364,17 @@ void loop()
     else if (c == '\n') // Enter
     {
       Serial.printf("Command: %s\n", command);
-      setServo(BLT, atoi(command));
+      if (command[0] == 'u')
+      {
+        displayDistance = true;
+      }
+      else if (command[0] == 'd')
+      {
+        displayDistance = false;
+      }
+      // setServo(BLT, atoi(command));
+      // String message = String(200) + ", " + String(command);
+      // LoRa_sendMessage(message);
       idx = 0;
       for (int i = 0; i < 10; i++)
       {
@@ -382,7 +402,7 @@ void waitforButton()
 }
 
 void checkIR()
-{
+{// For testing with IR Remote
   if (irrecv.decode(&results))
   {
     Serial.println(results.value, HEX);
@@ -397,12 +417,13 @@ void checkIR()
       {
         task = 1;
       }
-      LoRa_sendMessage(String(LoIsSitting) + "," + String(sitting));
+      LoRa_sendMessage(String(LoIsSitting) + ", " + String(sitting));
       break;
     case FBVOLUP:
       if (controlmode == 0)
       { // Walking Forward
         task = 3;
+        // displayDistance = true;
       }
       if (controlmode == 1)
       {
@@ -424,6 +445,7 @@ void checkIR()
       if (controlmode == 0)
       { // Walking Backward
         task = 4;
+        // displayDistance = true;
       }
       break;
     case FB1:
@@ -756,21 +778,21 @@ void calibrateGyro(){
   Serial.print("Gyro Offsets: "); Serial.print(gyroXOffset); Serial.print(", "); Serial.print(gyroYOffset); Serial.print(", "); Serial.println(gyroZOffset);
 }*/
 
-
-
 void LoRa_sendMessage(String message)
 {
-  // Serial.println("Begin message");
-  // LoRa.beginPacket(); // start packet
-  // LoRa.write(message.length());
-  // LoRa.print(message);
-  // LoRa.endPacket();
+  Serial.println("Begin message");
+  LoRa.beginPacket();
+  LoRa.write(message.length());
+  LoRa.print(message);
+  Serial.println(message);
+  LoRa.endPacket();
+  LoRa.receive();
 }
 
 void onReceive(String message)
 {
   int *LoRaArray = stringToIntArray(message);
-  if (LoRaArray[0] <= 2 || LoRaArray[0] == LoGetPosLegs)
+  if (LoRaArray[0] <= 3 || LoRaArray[0] == LoGetPosLegs)
   {
     LoRaValue = LoRaArray[0];
     if (LoRaValue <= 2)
@@ -783,29 +805,30 @@ void onReceive(String message)
     }
     else if (LoRaValue == LoGetPosLegs)
     {
-      LoRa_sendMessage(String(LoFLS) + "," + String(cFLS + servoOffsets[0]));
+      delay(800);
+      LoRa_sendMessage(String(LoFLS) + ", " + String(cFLS + servoOffsets[0]));
       delay(50);
-      LoRa_sendMessage(String(LoFLT) + "," + String(cFLT + servoOffsets[1]));
+      LoRa_sendMessage(String(LoFLT) + ", " + String(cFLT + servoOffsets[1]));
       delay(50);
-      LoRa_sendMessage(String(LoFLB) + "," + String(cFLB + servoOffsets[2]));
+      LoRa_sendMessage(String(LoFLB) + ", " + String(cFLB + servoOffsets[2]));
       delay(50);
-      LoRa_sendMessage(String(LoBRS) + "," + String(cBRS + servoOffsets[3]));
+      LoRa_sendMessage(String(LoBRS) + ", " + String(cBRS + servoOffsets[3]));
       delay(50);
-      LoRa_sendMessage(String(LoBRT) + "," + String(cBRT + servoOffsets[4]));
+      LoRa_sendMessage(String(LoBRT) + ", " + String(cBRT + servoOffsets[4]));
       delay(50);
-      LoRa_sendMessage(String(LoBRB) + "," + String(cBRB + servoOffsets[5]));
+      LoRa_sendMessage(String(LoBRB) + ", " + String(cBRB + servoOffsets[5]));
       delay(50);
-      LoRa_sendMessage(String(LoFRS) + "," + String(cFRS + servoOffsets[6]));
+      LoRa_sendMessage(String(LoFRS) + ", " + String(cFRS + servoOffsets[6]));
       delay(50);
-      LoRa_sendMessage(String(LoFRT) + "," + String(cFRT + servoOffsets[7]));
+      LoRa_sendMessage(String(LoFRT) + ", " + String(cFRT + servoOffsets[7]));
       delay(50);
-      LoRa_sendMessage(String(LoFRB) + "," + String(cFRB + servoOffsets[8]));
+      LoRa_sendMessage(String(LoFRB) + ", " + String(cFRB + servoOffsets[8]));
       delay(50);
-      LoRa_sendMessage(String(LoBLS) + "," + String(cBLS + servoOffsets[9]));
-      delay(0);
-      LoRa_sendMessage(String(LoBLT) + "," + String(cBLT + servoOffsets[10]));
+      LoRa_sendMessage(String(LoBLS) + ", " + String(cBLS + servoOffsets[9]));
       delay(50);
-      LoRa_sendMessage(String(LoBLB) + "," + String(cBLB + servoOffsets[11]));
+      LoRa_sendMessage(String(LoBLT) + ", " + String(cBLT + servoOffsets[10]));
+      delay(50);
+      LoRa_sendMessage(String(LoBLB) + ", " + String(cBLB + servoOffsets[11]));
     }
   }
   else if (2 < LoRaArray[0] <= 50)
@@ -925,8 +948,8 @@ void onReceive(String message)
 }
 
 int *stringToIntArray(String str)
-{
-  // Convert the string back to an integer array
+{// Convert the string back to an integer array
+  
   int startIndex = 0;
   int endIndex = str.indexOf(',');
   int *intArray = new int[2];

@@ -40,13 +40,13 @@ extern Adafruit_PWMServoDriver servoDriver_module;
 #define H_MIN 6.0
 
 int angleToPulse(int ang)
-{
+{ // Converts angle to pulse width for the servo
   int pulse = map(ang, 0, 270, SERVOMIN, SERVOMAX);
   return pulse;
 }
 
 void setServo(int motor, int angle)
-{
+{ // Moves a single servo to a certain angle
   if (motor < 0)
   {
     return;
@@ -56,9 +56,8 @@ void setServo(int motor, int angle)
   *cPositions[motor] = angle;
 }
 
-
 void GoTo(const int targetPositions[12])
-{
+{ // Moves all servos to the target positions
   int stepSize = 2;
   bool allServosAtTarget = false;
   while (!allServosAtTarget)
@@ -254,7 +253,7 @@ void GoTo(const int targetPositions[12])
 }
 
 void setServoSlow(int motor, int angle, int stepsize)
-{
+{ // Moves a single servo to a certain angle with a certain stepsize
   int currmotor = *cPositions[motor];
   if (currmotor < angle)
   {
@@ -279,7 +278,7 @@ void setServoSlow(int motor, int angle, int stepsize)
 }
 
 void setServoS(int GoUp)
-{
+{ // Moves all side Servos
   setServo(FLS, cFLS + GoUp);
   setServo(BRS, cBRS - GoUp);
   setServo(FRS, cFRS + GoUp);
@@ -287,7 +286,7 @@ void setServoS(int GoUp)
 }
 
 void setServoT(int GoUp)
-{
+{ // Moves all Top Servos
   setServo(FLT, cFLT - GoUp);
   setServo(BRT, cBRT + GoUp);
   setServo(FRT, cFRT + GoUp);
@@ -295,7 +294,7 @@ void setServoT(int GoUp)
 }
 
 void setServoB(int GoUp)
-{
+{ // Moves all Bottom Servos
   setServo(FLB, cFLB + GoUp);
   setServo(BRB, cBRB + GoUp);
   setServo(FRB, cFRB - GoUp);
@@ -303,19 +302,19 @@ void setServoB(int GoUp)
 }
 
 void setServoTB(int GoUp)
-{
+{ // Moves all Top and Bottom Servos (Bottom moves double the value)
   setServoT(GoUp);
   setServoB(2 * GoUp);
 }
 
 void moveServo(int selectedServo, int updown)
-{
+{ // Moves a selected Servo in steps of 5 (for testing)
   int step = 5 * updown;
   setServo(selectedServo, *cPositions[selectedServo] + step);
 }
 
 void walk()
-{//Backup walking function
+{ // Backup walking function
   setServo(FRB, cFRB + 30);
   setServo(FRT, sFRT + 15);
   delay(100);
@@ -354,8 +353,31 @@ void walk()
   GoTo(standpos);
 }
 
+void walkFF()
+{ // Walking forward
+  moveLeg(FLt, 5, 0, 6);
+  moveLeg(BRt, 5, 0, 6);
+  moveLeg(FRt, 0, 0, 0);
+  moveLeg(BLt, 0, 0, 0);
+  delay(100);
+  // waitforButton();
+  moveLeg(FLt, 5, 0, 0);
+  moveLeg(BRt, 5, 0, 0);
+  delay(400);
+
+  moveLeg(FRt, 5, 0, 6);
+  moveLeg(BLt, 5, 0, 6);
+  moveLeg(FLt, 0, 0, 0);
+  moveLeg(BRt, 0, 0, 0);
+  delay(100);
+  // waitforButton();
+  moveLeg(FRt, 5, 0, 0);
+  moveLeg(BLt, 5, 0, 0);
+  delay(400);
+}
+
 void walkBB()
-{
+{ // Walking backwards
   moveLeg(FLt, 1, 0, 3);
   delay(100);
   moveLeg(BRt, 0, 0, 2);
@@ -368,7 +390,7 @@ void walkBB()
   moveLeg(FLt, -6, 0, 0);
 
   standneutral();
-
+  
   moveLeg(FRt, 1, 0, 3);
   delay(100);
   moveLeg(BLt, 0, 0, 2);
@@ -383,9 +405,8 @@ void walkBB()
   standneutral();
 }
 
-// Function to compute the Inverse Kinematics for a leg
 void computeIK(int legID, float x, float y, float z, float &theta1, float &theta2, float &theta3)
-{
+{ // Function to compute the Inverse Kinematics for a leg
   x = -x;
   if (legID == 0 || legID == 3)
   { // Left Legs
@@ -406,9 +427,8 @@ void computeIK(int legID, float x, float y, float z, float &theta1, float &theta
   theta2 = 90 - ((alpha + beta) * 180.0 / M_PI); // Angle of Hip
 }
 
-
 void moveLegGeneralFunc(int legID, float x, float y, float z, int stepsize)
-{// general Function to move a leg in a local coordinate system
+{ // general Function to move a leg in a local coordinate system
   if (singleLeg)
   {
     for (int i = 0; i < 12; i++)
@@ -446,7 +466,7 @@ void moveLegGeneralFunc(int legID, float x, float y, float z, int stepsize)
   nextPos[legID * 3 + 2] = currentTheta3[legID] + deltaTheta3;
 
   if (singleLeg)
-  {//Set to false to save all new positions first in order to execute them at the same time
+  { // Set to false to save all new positions first in order to execute them at the same time
     if (stepsize > 0)
     {
       setServoSlow(legID * 3, currentTheta1[legID] + deltaTheta1, stepsize);
@@ -463,7 +483,7 @@ void moveLegGeneralFunc(int legID, float x, float y, float z, int stepsize)
 }
 
 void moveLeg(int legID, float x, float y, float z, int stepsize)
-{// Leg function including offset calculation
+{ // Leg function including offset calculation
   float adjustedX;
   if (legID == 1 || legID == 3)
   {
@@ -480,7 +500,7 @@ void moveLeg(int legID, float x, float y, float z, int stepsize)
 }
 
 void setStandingPose()
-{
+{ // Robot stands up to the calculated standing position
   singleLeg = false;
   for (int i = 0; i < 12; i++)
   {
@@ -495,7 +515,7 @@ void setStandingPose()
 }
 
 void standneutral()
-{
+{ // Robot stands up to the calculated standing position but faster
   moveLeg(FLt, 0, 0, 0);
   moveLeg(BRt, 0, 0, 0);
   moveLeg(FRt, 0, 0, 0);
@@ -503,7 +523,7 @@ void standneutral()
 }
 
 void sidestepRR()
-{
+{ // Sidestep to the right
   // Lower left legs to shift weight to the left
   moveLeg(FLt, 0, 0, 3);
   moveLeg(BLt, 0, 0, 3);
@@ -555,7 +575,7 @@ void sidestepRR()
 }
 
 void sidestepLL()
-{
+{ // Sidestep to the left
   // Gewicht nach links verteilen
   moveLeg(FRt, 0, 0, 3);
   moveLeg(BRt, 0, 0, 3);
@@ -607,7 +627,7 @@ void sidestepLL()
 }
 
 void rotateRR()
-{
+{ // Rotate clockwise
   singleLeg = false;
   for (int i = 0; i < 12; i++)
   {
@@ -649,7 +669,7 @@ void rotateRR()
 }
 
 void rotateLL()
-{
+{ // Rotate counterclockwise
   singleLeg = false;
   for (int i = 0; i < 12; i++)
   {
@@ -690,32 +710,8 @@ void rotateLL()
   setStandingPose();
 }
 
-void walkFF()
-{
-
-  moveLeg(FLt, 5, 0, 6);
-  moveLeg(BRt, 5, 0, 6);
-  moveLeg(FRt, 0, 0, 0);
-  moveLeg(BLt, 0, 0, 0);
-  delay(100);
-  // waitforButton();
-  moveLeg(FLt, 5, 0, 0);
-  moveLeg(BRt, 5, 0, 0);
-  delay(400);
-
-  moveLeg(FRt, 5, 0, 6);
-  moveLeg(BLt, 5, 0, 6);
-  moveLeg(FLt, 0, 0, 0);
-  moveLeg(BRt, 0, 0, 0);
-  delay(100);
-  // waitforButton();
-  moveLeg(FRt, 5, 0, 0);
-  moveLeg(BLt, 5, 0, 0);
-  delay(400);
-}
-
 void bop()
-{
+{ // Bops up and down (for aesthetics)
   singleLeg = false;
   for (int i = 0; i < 12; i++)
   {
@@ -742,7 +738,8 @@ void bop()
   delay(300);
 }
 
-void hump(){
+void hump()
+{ // humps your leg (consensually)
   singleLeg = false;
   for (int i = 0; i < 12; i++)
   {
@@ -760,7 +757,7 @@ void hump(){
 }
 
 void changeHeight(float heightChange)
-{
+{ // goes up or down
   height += heightChange;
   if (height < H_MAX)
   {

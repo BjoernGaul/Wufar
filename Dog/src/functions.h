@@ -25,10 +25,10 @@ void computeIK(int legID,float x, float y, float z, float &theta1, float &theta2
 void moveLegGeneralFunc(int legID, float x, float y, float z, int stepsize = 0);
 void moveLeg(int legID, float x, float y, float z, int stepsize = 0);
 void walk();
+void walkFF();
 void walkBB();
 void setStandingPose();
 void standneutral();
-void walkFF();
 void sidestepRR();
 void sidestepLL();
 void rotateRR();
