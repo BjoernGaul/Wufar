@@ -1,13 +1,13 @@
 #include <Arduino.h>
+#include <Adafruit_MPU6050.h>
 #include <Adafruit_PWMServoDriver.h>
+#include <Adafruit_Sensor.h>
+#include <IRrecv.h>
+#include <IRremoteESP8266.h>
+#include <IRutils.h>
+#include <LoRa.h>
 #include <SPI.h>
 #include <Wire.h>
-#include <IRremoteESP8266.h>
-#include <IRrecv.h>
-#include <IRutils.h>
-#include <Adafruit_Sensor.h>
-#include <Adafruit_MPU6050.h>
-#include <LoRa.h>
 #include "functions.h"
 
 //* Pin of Servos
@@ -224,7 +224,8 @@ void setup()
   //*  Ultrasonic
   pinMode(trigPin, OUTPUT);
   pinMode(echoPin, INPUT);
-  // gyrosetup();
+  //* Gyroscope Setup
+  gyrosetup();
 }
 
 void loop()
@@ -236,7 +237,6 @@ void loop()
     onReceive(TempMsg);
   }
   checkIR();
-  // gyroread();
   //* Checks height before any other task
   if (heightChanged && (task > 0) && (task < 10))
   { // If the height is changed, it will first reset its height
@@ -253,11 +253,13 @@ void loop()
   case 1:
     GoTo(sitpos);
     sitting = true;
+    displayDistance = false;
     task = 0;
     break;
   case 2:
     setStandingPose();
     sitting = false;
+    displayDistance = true;
     task = 0;
     break;
   case 3:
@@ -267,6 +269,7 @@ void loop()
       if (distanceFlag)
       {
         task = 2;
+        distanceFlag = false;
       }
     }
     break;
@@ -342,10 +345,6 @@ void loop()
       String message = String(200) + ", " + String(distance);
       LoRa_sendMessage(message);
       distanceMillisL = distanceMillisC;
-      if (task != 3 && task != 4)
-      {
-        displayDistance = false;
-      }
     }
   }
   //* Serial Monitor
@@ -372,9 +371,6 @@ void loop()
       {
         displayDistance = false;
       }
-      // setServo(BLT, atoi(command));
-      // String message = String(200) + ", " + String(command);
-      // LoRa_sendMessage(message);
       idx = 0;
       for (int i = 0; i < 10; i++)
       {
@@ -423,7 +419,6 @@ void checkIR()
       if (controlmode == 0)
       { // Walking Forward
         task = 3;
-        // displayDistance = true;
       }
       if (controlmode == 1)
       {
@@ -445,7 +440,6 @@ void checkIR()
       if (controlmode == 0)
       { // Walking Backward
         task = 4;
-        // displayDistance = true;
       }
       break;
     case FB1:
@@ -584,7 +578,6 @@ void checkIR()
     case FBREPT:
       if (controlmode == 0)
       {
-        // LoRa_sendMessage("69");
       }
       else if (controlmode == 1)
       {
@@ -644,7 +637,7 @@ void checkIR()
   }
 }
 
-/*void gyrosetup(){
+void gyrosetup(){
   int breakcounter = 0;
   if (!mpu.begin()){
     Serial.println("Sensor init failed");
@@ -723,8 +716,8 @@ void checkIR()
   calibrateGyro();
   delay(100);
 }
-*/
-/*void gyroread(){
+
+void gyroread(){
   sensors_event_t a, g, temp;
   mpu.getEvent(&a, &g, &temp);
   float accelX = a.acceleration.x - accelXOffset;
@@ -746,37 +739,6 @@ void checkIR()
   delay(500);
 }
 
-void calibrateGyro(){
-
-  const int numReadings = 1000;
-  float accelXSum = 0, accelYSum = 0, accelZSum = 0;
-  float gyroXSum = 0, gyroYSum = 0, gyroZSum = 0;
-
-  for (int i = 0; i < numReadings; i++) {
-    sensors_event_t a, g, temp;
-    mpu.getEvent(&a, &g, &temp);
-
-    accelXSum += a.acceleration.x;
-    accelYSum += a.acceleration.y;
-    accelZSum += a.acceleration.z;
-    gyroXSum += g.gyro.x;
-    gyroYSum += g.gyro.y;
-    gyroZSum += g.gyro.z;
-
-    delay(10);
-  }
-
-  accelXOffset = accelXSum / numReadings;
-  accelYOffset = accelYSum / numReadings;
-  accelZOffset = accelZSum / numReadings;
-  gyroXOffset = gyroXSum / numReadings;
-  gyroYOffset = gyroYSum / numReadings;
-  gyroZOffset = gyroZSum / numReadings;
-
-  Serial.println("Calibration complete");
-  Serial.print("Accel Offsets: "); Serial.print(accelXOffset); Serial.print(", "); Serial.print(accelYOffset); Serial.print(", "); Serial.println(accelZOffset);
-  Serial.print("Gyro Offsets: "); Serial.print(gyroXOffset); Serial.print(", "); Serial.print(gyroYOffset); Serial.print(", "); Serial.println(gyroZOffset);
-}*/
 
 void LoRa_sendMessage(String message)
 {
@@ -797,7 +759,12 @@ void onReceive(String message)
     LoRaValue = LoRaArray[0];
     if (LoRaValue <= 2)
     {
-      task = LoRaValue;
+      if (task == 0 && !sitting && (LoRaValue !=1)){
+        task = 9;
+      }else{
+        task = LoRaValue;
+      }
+      
     }
     else if (LoRaValue == 3)
     {
@@ -848,11 +815,9 @@ void onReceive(String message)
         break;
       case LoWalkB:
         task = 4;
-        displayDistance = true;
         break;
       case LoWalkF:
         task = 3;
-        displayDistance = true;
         break;
       default:
         task = 0;
@@ -962,7 +927,6 @@ int *stringToIntArray(String str)
     endIndex = str.indexOf(',', startIndex);
   }
   intArray[arrayIndex] = str.substring(startIndex).toInt(); // Add the last number
-  // printf("Array: %d, %d\n", intArray[0], intArray[1]);
   return intArray;
 }
 
@@ -977,7 +941,7 @@ float getDistance()
   float distanceFnct = duration * 0.034 / 2;
   Serial.print("Distance: ");
   Serial.println(distanceFnct);
-  if (distanceFnct < 10)
+  if (distanceFnct < 25)
   {
     distanceFlag = true;
   }

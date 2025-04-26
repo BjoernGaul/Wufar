@@ -343,13 +343,6 @@ void walk()
   setServo(BRT, sBRT);
   delay(100);
   setServo(BRB, sBRB - 10);
-  // setServo(BRT, sBRT);
-  // delay(200);
-
-  // setServo(FRT, sFRT+10);
-  // setServo(FLT, sFLT+10);
-  // setServo(BRT, sBRT+10);
-  // setServo(BLT, sBLT+10);
   GoTo(standpos);
 }
 
@@ -530,99 +523,79 @@ void sidestepRR()
   moveLeg(FRt, 0, 0, -1);
   moveLeg(BRt, 0, 0, -1);
   delay(200);
-  // waitforButton();
-  moveLeg(FLt, 0, 0, 4); // FL bisschen mehr absenken fürs gleichgewicht
+  moveLeg(FLt, 0, 0, 4); // lower FL for better balance
   moveLeg(BRt, 0, 6, 2, 4);
   delay(100);
   moveLeg(BRt, 0, 6, -3, 4);
   delay(100);
-  // waitforButton();
-  // FR nach rechts und dann absenken
+  // FR to the right and then lower
   moveLeg(FLt, 0, 0, 3);
   moveLeg(BLt, 0, 0, 4);
   moveLeg(FRt, 0, 6, 2, 4);
   delay(100);
   moveLeg(FRt, 0, 6, -3, 4);
   delay(100);
-  // waitforButton();
-  // FL nach rechts und dann absenken
   // Slide to the right
   moveLeg(FLt, 0, 6, -2);
   moveLeg(BLt, 0, 6, -2);
   moveLeg(FRt, 0, 0, 3);
   moveLeg(BRt, 0, 0, 3);
   delay(100);
-  // waitforButton();
-  // BL nachziehen
+  // BL to the front
   moveLeg(BLt, -3, 1, 8, 4);
   setServo(BLS, cBLS + 10);
-  // waitforButton();
   setServo(BLT, cBLT - 30);
   delay(100);
-  // waitforButton();
   moveLeg(BLt, 0, 0, -1, 4);
   delay(100);
-  // waitforButton();
-  // FL nachziehen
+  // FL tp the front
   moveLeg(FLt, 4, 1, 8, 4);
   setServo(FLT, cFLT + 20);
   delay(100);
   moveLeg(FLt, 0, 0, -1, 4);
   delay(100);
-  // waitforButton();
-  // Normal stehen
   standneutral();
 }
 
 void sidestepLL()
 { // Sidestep to the left
-  // Gewicht nach links verteilen
+  // shift balance to the right
   moveLeg(FRt, 0, 0, 3);
   moveLeg(BRt, 0, 0, 3);
   moveLeg(FLt, 0, 0, -1);
   moveLeg(BLt, 0, 0, -1);
   delay(200);
-  // waitforButton();
-  moveLeg(FRt, 0, 0, 4); // FL bisschen mehr absenken fürs gleichgewicht
+  moveLeg(FRt, 0, 0, 4);
   moveLeg(BLt, 0, 7, 2, 4);
   delay(100);
   moveLeg(BLt, 0, 7, -3, 4);
   delay(100);
-  // waitforButton();
-  // FR nach rechts und dann absenken
+  // FL to the left and lower
   moveLeg(FRt, 0, 0, 3);
   moveLeg(BRt, 0, 0, 4);
   moveLeg(FLt, 0, 6, 2, 4);
   delay(100);
   moveLeg(FLt, 0, 6, -3, 4);
   delay(100);
-  // waitforButton();
-  // FL nach rechts und dann absenken
-  // Slide to the right
+  // Slide to the left
   moveLeg(FRt, 0, 6, -2);
   moveLeg(BRt, 0, 6, -2);
   moveLeg(FLt, 0, 0, 3);
   moveLeg(BLt, 0, 0, 3);
   delay(100);
-  // waitforButton();
-  // BL nachziehen
+  // Br to the front
   moveLeg(BRt, -3, 1, 8, 4);
   setServo(BRS, cBRS + 10);
-  // waitforButton();
   setServo(BRT, cBRT + 30);
   delay(100);
-  // waitforButton();
   moveLeg(BRt, 0, 0, -1, 4);
   delay(100);
-  // waitforButton();
-  // FL nachziehen
+  // FR to the front
   moveLeg(FRt, 4, 1, 8, 4);
   setServo(FRT, cFRT - 20);
   delay(100);
   moveLeg(FRt, 0, 0, -1, 4);
   delay(100);
-  // waitforButton();
-  // Normal stehen
   standneutral();
 }
 
@@ -641,30 +614,21 @@ void rotateRR()
   singleLeg = true;
   setServo(FLB, cFLB - 10);
   delay(100);
-  // waitforButton();
   moveLeg(BRt, 0, 0, 6, 4);
   delay(100);
-  // waitforButton();
   moveLeg(BRt, 0, -2, 2, 4);
   moveLeg(FLt, 0, 0, 6, 4);
   delay(100);
-  // waitforButton();
   moveLeg(FLt, 0, -3, 1, 4);
   delay(100);
-  // waitforButton();
   moveLeg(FRt, 0, 0, 8, 4);
   delay(100);
-  // waitforButton();
   moveLeg(FRt, 0, 0, 2, 4);
   delay(100);
-  // waitforButton();
   setServo(BLT, cBLT - 20);
   setServo(BLB, cBLB + 20);
-
-  // waitforButton();
   setServo(BLS, cBLS - 30);
   moveLeg(BLt, 0, 0, 2, 4);
-  // waitforButton();
   setStandingPose();
 }
 
@@ -683,30 +647,21 @@ void rotateLL()
   singleLeg = true;
   setServo(FRB, cFRB - 10);
   delay(100);
-  // waitforButton();
   moveLeg(BLt, 0, 0, 6, 4);
   delay(100);
-  // waitforButton();
   moveLeg(BLt, 0, -2, 2, 4);
   moveLeg(FRt, 2, 0, 7, 4);
   delay(100);
-  // waitforButton();
   moveLeg(FRt, 0, -3, 1, 4);
   delay(100);
-  // waitforButton();
   moveLeg(FLt, 0, 0, 8, 4);
   delay(100);
-  // waitforButton();
   moveLeg(FLt, 0, 0, 2, 4);
   delay(100);
-  // waitforButton();
   setServo(BRT, cBRT - 20);
   setServo(BRB, cBRB + 20);
-
-  // waitforButton();
   setServo(BRS, cBRS - 30);
   moveLeg(BRt, 0, 0, 2, 4);
-  // waitforButton();
   setStandingPose();
 }
 
