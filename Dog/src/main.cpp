@@ -128,7 +128,7 @@ int *cPositions[12] = {&cFLS, &cFLT, &cFLB, &cBRS, &cBRT, &cBRB, &cFRS, &cFRT, &
 int nextPos[12] = {cFLS, cFLT, cFLB, cBRS, cBRT, cBRB, cFRS, cFRT, cFRB, cBLS, cBLT, cBLB};
 
 //* neutral positions
-const int servoOffsets[12] = {97, 160, 5, 135, 150, 35, 94, 165, 185, 28, 55, 162}; // Offset
+const int servoOffsets[12] = {135, 160, 5, 135, 150, 35, 94, 165, 185, 28, 55, 162}; // Offset
 const int nFLS = 0;
 const int nFLT = 0;
 const int nFLB = 0;
@@ -182,7 +182,6 @@ int idx = 0;
 void checkIR();
 void gyrosetup();
 void gyroread();
-void calibrateGyro();
 
 //* LoRa functions
 void LoRa_sendMessage(String message);
@@ -713,7 +712,6 @@ void gyrosetup(){
       break;
   }
   Serial.println("");
-  calibrateGyro();
   delay(100);
 }
 
